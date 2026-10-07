@@ -1,0 +1,60 @@
+:root {
+  /* Colors - Base & Surfaces */
+  --bg-base: #050505;
+  --bg-surface: #0a0a0a;
+  --bg-surface-glass: rgba(255, 255, 255, 0.03);
+  --bg-surface-hover: rgba(255, 255, 255, 0.06);
+  --bg-surface-active: rgba(255, 255, 255, 0.1);
+
+  /* Colors - Accents & States */
+  --accent-neon: #FF2D95;
+  --accent-blood: #8B0000;
+  --accent-neon-muted: rgba(255, 45, 149, 0.2);
+  --accent-blood-muted: rgba(139, 0, 0, 0.3);
+
+  /* Colors - Text */
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-subtle: rgba(255, 255, 255, 0.2);
+
+  /* Colors - Borders */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-accent: rgba(255, 45, 149, 0.2);
+  --border-danger: rgba(139, 0, 0, 0.3);
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --text-xs: 0.625rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.875rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 2rem;
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.1em;
+  --tracking-widest: 0.3em;
+  --tracking-ultra: 0.5em;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Elevation & Glows */
+  --shadow-neon-sm: 0 0 10px rgba(255, 45, 149, 0.3);
+  --shadow-neon: 0 0 20px rgba(255, 45, 149, 0.5);
+  --shadow-blood: 0 0 15px rgba(139, 0, 0, 0.5);
+
+  /* Radius */
+  --radius-sharp: 0px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-full: 9999px;
+}

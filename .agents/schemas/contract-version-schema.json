@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContractVersionModel",
+  "description": "Schema for versioned API, database, and domain invariant contracts with compatibility metadata and dependency graphs.",
+  "type": "object",
+  "required": ["contractId", "version", "domain", "status", "files", "consumers", "compatibility"],
+  "properties": {
+    "contractId": {
+      "type": "string",
+      "description": "Unique identifier for the contract domain (e.g. 'contract-auth', 'contract-checkout')."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer version string (e.g. '1.1.0')."
+    },
+    "domain": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "locked", "deprecated", "superseded"]
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "zod": { "type": "string" },
+        "openapi": { "type": "string" },
+        "databaseMigration": { "type": "string" }
+      }
+    },
+    "consumers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent", "worktreeBranch", "subtask"],
+        "properties": {
+          "agent": { "type": "string" },
+          "worktreeBranch": { "type": "string" },
+          "subtask": { "type": "string" }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "required": ["isBackwardCompatible", "breakingChangeReason", "minimumCompatibleVersion"],
+      "properties": {
+        "isBackwardCompatible": { "type": "boolean" },
+        "breakingChangeReason": { "type": "string" },
+        "minimumCompatibleVersion": { "type": "string" }
+      }
+    },
+    "dependencyGraph": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Other contract IDs this contract depends on."
+    }
+  },
+  "additionalProperties": false
+}

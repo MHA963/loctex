@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "AOS Quality Gate Execution Policy",
+  "version": "1.0.0",
+  "strict_blocking": true,
+  "tiers": {
+    "pre_edit": {
+      "fail_mode": "block_and_abort",
+      "max_latency_ms": 1500
+    },
+    "post_task": {
+      "fail_mode": "block_and_abort",
+      "required_checks": ["tsc --noEmit", "eslint", "vitest run"]
+    },
+    "pre_merge": {
+      "fail_mode": "block_and_abort",
+      "required_checks": ["playwright test", "semgrep scan", "npm audit", "npm run build"]
+    },
+    "pre_production": {
+      "fail_mode": "block_and_abort",
+      "required_checks": ["prisma migrate status", "smoke_tests", "rollback_verify"]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+:root {
+  /* Color Palette */
+  --color-bg-base: #000000;
+  --color-bg-surface: rgba(255, 255, 255, 0.05);
+  --color-bg-surface-raised: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.1);
+  --color-border-accent: rgba(0, 123, 255, 0.4);
+  --color-text-primary: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.6);
+  --color-text-subtle: rgba(255, 255, 255, 0.4);
+  --color-accent: #007bff;
+  --color-accent-hover: #1a8cff;
+  --color-focus-ring: #007bff;
+
+  /* Typography */
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-2xl: 1.5rem;
+  --text-4xl: 2.25rem;
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  --leading-none: 1;
+  --leading-normal: 1.5;
+  --tracking-tighter: -0.05em;
+  --tracking-widest: 0.15em;
+
+  /* Spacing */
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Radius & Elevation */
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  --shadow-glow: 0 0 50px rgba(0, 123, 255, 0.25);
+  --backdrop-blur: blur(16px);
+}

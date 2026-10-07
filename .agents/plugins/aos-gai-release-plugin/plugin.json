@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "aos-gai-release-plugin",
+  "version": "1.0.0",
+  "description": "Enterprise Git Gatekeeper & Release Plugin for GAI. Enforces Conventional Commits, upstream rebase checks, static type invariants, GitHub PR automation, and semantic releases.",
+  "author": {
+    "name": "AOS Release Engineering",
+    "role": "GAI (Lead Release Engineer)"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "git",
+    "conventional-commits",
+    "semantic-release",
+    "github-cli",
+    "quality-gates",
+    "typecheck"
+  ],
+  "skills": [
+    "../../skills/commitlint-conventional-validator",
+    "../../skills/semantic-release-automator",
+    "../../skills/gh-cli-pr-gatekeeper",
+    "../../skills/git-rebase-drift-preventer",
+    "../../skills/static-type-quality-gate"
+  ],
+  "scripts": {
+    "validate-commit": "node scripts/validate-commit-msg.js",
+    "verify-rebase": "node scripts/verify-rebase-status.js",
+    "tag-release": "node scripts/tag-semantic-release.js"
+  }
+}

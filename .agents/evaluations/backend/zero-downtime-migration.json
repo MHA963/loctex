@@ -1,0 +1,26 @@
+{
+  "id": "bench-be-002",
+  "domain": "backend",
+  "task": "Rename column user_email to email across live production database using expand-and-contract protocol.",
+  "expected_artifacts": [
+    "prisma/migrations/01_add_email_column.sql",
+    "prisma/migrations/02_dual_write_trigger.sql",
+    "src/db/userRepo.ts"
+  ],
+  "required_tests": [
+    "verify_no_table_exclusive_locks",
+    "verify_backward_schema_compatibility",
+    "verify_dual_write_and_backfill_idempotency"
+  ],
+  "failure_conditions": [
+    "Direct ALTER TABLE RENAME COLUMN without expand-and-contract phases",
+    "Adding NOT NULL column without DEFAULT value causing downtime on existing rows",
+    "Dropping column in same release as write deprecation"
+  ],
+  "metrics": {
+    "min_test_pass_rate": 1.0,
+    "max_retry_count": 0,
+    "max_token_budget": 4500,
+    "max_execution_time_ms": 14000
+  }
+}

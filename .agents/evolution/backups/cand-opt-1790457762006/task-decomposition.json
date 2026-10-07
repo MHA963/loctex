@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "AOS Task Decomposition Policy",
+  "version": "1.0.0",
+  "rules": [
+    {
+      "scope": "new_feature_epic",
+      "required_subtasks": [
+        { "phase": 1, "owner": "AAI", "deliverable": "Zod Schemas & OpenAPI Invariants" },
+        { "phase": 1, "owner": "BAI", "deliverable": "Database DDL Migrations & RLS Policies" },
+        { "phase": 2, "owner": "UXAI", "deliverable": "Pixel Mockup Image & Human Approval" },
+        { "phase": 2, "owner": "Fai", "deliverable": "React UI Components on Isolated Worktree" },
+        { "phase": 2, "owner": "SAI", "deliverable": "Input Sanitization & Boundary Gates" },
+        { "phase": 3, "owner": "QAI", "deliverable": "Vitest & Playwright E2E Verification" },
+        { "phase": 3, "owner": "GAI", "deliverable": "Typecheck & Linear Git Merge" }
+      ]
+    },
+    {
+      "scope": "patch_bugfix",
+      "fast_track_allowed": true,
+      "skip_visual_gate": true,
+      "required_subtasks": [
+        { "phase": 1, "owner": "Specialist", "deliverable": "Targeted Bugfix Patch" },
+        { "phase": 2, "owner": "QAI", "deliverable": "Regression Test Fixture" },
+        { "phase": 3, "owner": "GAI", "deliverable": "Quality Gate Validation & Fast-Forward Merge" }
+      ]
+    }
+  ]
+}

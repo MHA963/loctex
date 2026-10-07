@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "AOS Evolution Promotion Ledger",
+  "currentAosVersion": "3.2.1",
+  "history": [
+    {
+      "version": "3.2.1",
+      "promotedAt": "2026-09-26T21:22:42.048Z",
+      "proposalId": "prop-auto-1790457762006",
+      "candidateId": "cand-opt-1790457762006",
+      "targetScope": "policies",
+      "targetFile": "policies/task-decomposition.json",
+      "description": "Identified optimization opportunity in task decomposition policy to pre-cache Zod schemas and avoid redundant contract inference cycles.",
+      "compositeScore": 94.8,
+      "status": "active"
+    },
+    {
+      "version": "3.0.0",
+      "promotedAt": "2026-09-24T00:00:00.000Z",
+      "proposalId": "init-aos-v3",
+      "targetScope": "rules",
+      "description": "Initial release of AOS with 5 Universal Principles and 4-tier hooks.",
+      "benchmarkPassRate": 1,
+      "status": "active"
+    },
+    {
+      "version": "3.1.0",
+      "promotedAt": "2026-09-25T12:00:00.000Z",
+      "proposalId": "prop-psbp-isolation",
+      "targetScope": "scripts",
+      "description": "Added pre_edit verify-path-isolation lightweight boundary guard.",
+      "benchmarkPassRate": 1,
+      "status": "active"
+    },
+    {
+      "version": "3.2.0",
+      "promotedAt": "2026-09-26T21:05:00.000Z",
+      "proposalId": "prop-evai-evolution-agent",
+      "targetScope": "custom-agents",
+      "description": "Evolved ROAI to EVAI (Evaluation, Evolution & On-Demand AI Capability).",
+      "benchmarkPassRate": 1,
+      "status": "active"
+    }
+  ]
+}

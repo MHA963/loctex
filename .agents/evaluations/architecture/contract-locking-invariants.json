@@ -1,0 +1,26 @@
+{
+  "id": "bench-arch-001",
+  "domain": "architecture",
+  "task": "Lock API contracts and Zod invariants for a Checkout & Payout flow prior to Phase 2 subagent dispatch.",
+  "expected_artifacts": [
+    "src/contracts/checkout.types.ts",
+    "src/contracts/checkout.zod.ts",
+    "src/contracts/openapi/checkout.v1.yaml"
+  ],
+  "required_tests": [
+    "verify_phase_1_contract_locked_event_in_ledger",
+    "verify_zod_runtime_schema_inference",
+    "verify_zero_any_types"
+  ],
+  "failure_conditions": [
+    "Fai or BAI launched in Phase 2 before CONTRACT_LOCKED event was appended to telemetry",
+    "Zod schema lacks strict regex/bounds validation on currency or ID parameters",
+    "Any 'any' or untyped Record<string, any> in contract exports"
+  ],
+  "metrics": {
+    "min_test_pass_rate": 1.0,
+    "max_retry_count": 0,
+    "max_token_budget": 4000,
+    "max_execution_time_ms": 10000
+  }
+}
