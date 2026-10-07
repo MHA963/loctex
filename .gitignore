@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+loctex_data
+*.log
+.DS_Store
+*.synctex.gz
+*.aux
+*.pdf
+*.fls
+*.fdb_latexmk
