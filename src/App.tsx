@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HeaderPill } from './components/HeaderPill.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
-import { EditorPane } from './components/EditorPane.tsx';
+import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
 import { PdfCanvas } from './components/PdfCanvas.tsx';
 import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
@@ -20,6 +20,8 @@ import {
 } from './types/index.ts';
 
 export default function App() {
+  const editorRef = useRef<EditorPaneRef | null>(null);
+
   // Theme & Mode State
   const [theme, setTheme] = useState<ThemeName>('dark-gold');
   const [mode, setMode] = useState<WorkspaceMode>('research-studio');
@@ -161,11 +163,31 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
     }, 450);
   };
 
+  // Topbar Typography Format Actions
+  const handleToggleBold = () => {
+    setIsBold(!isBold);
+    editorRef.current?.wrapSelection('\\textbf{', '}');
+  };
+
+  const handleToggleItalic = () => {
+    setIsItalic(!isItalic);
+    editorRef.current?.wrapSelection('\\textit{', '}');
+  };
+
+  const handleToggleUnderline = () => {
+    setIsUnderline(!isUnderline);
+    editorRef.current?.wrapSelection('\\underline{', '}');
+  };
+
+  const handleToggleCode = () => {
+    setIsCode(!isCode);
+    editorRef.current?.wrapSelection('\\texttt{', '}');
+  };
+
   // Direct In-PDF Edit Handler
   const handleDirectPdfEdit = (newText: string, targetLine: number) => {
     const lines = fileContent.split('\n');
     if (targetLine <= lines.length) {
-      // Update line in editor
       lines[targetLine - 1] = newText;
       setFileContent(lines.join('\n'));
       triggerCompile();
@@ -174,7 +196,6 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
 
   // Semantic Block Reorder Handler
   const handleBlockReorder = (sourceId: string, targetId: string) => {
-    // Reorder AST blocks and recompile
     triggerCompile();
   };
 
@@ -239,13 +260,13 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
         isBold={isBold}
-        onToggleBold={() => setIsBold(!isBold)}
+        onToggleBold={handleToggleBold}
         isItalic={isItalic}
-        onToggleItalic={() => setIsItalic(!isItalic)}
+        onToggleItalic={handleToggleItalic}
         isUnderline={isUnderline}
-        onToggleUnderline={() => setIsUnderline(!isUnderline)}
+        onToggleUnderline={handleToggleUnderline}
         isCode={isCode}
-        onToggleCode={() => setIsCode(!isCode)}
+        onToggleCode={handleToggleCode}
         theme={theme}
         onThemeChange={setTheme}
         mode={mode}
@@ -324,6 +345,7 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
 
           {/* Center LaTeX Editor Pane */}
           <EditorPane
+            ref={editorRef}
             content={fileContent}
             onChange={setFileContent}
             diagnostics={diagnostics}
@@ -336,13 +358,19 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
             synctexBoxes={synctexBoxes}
             onDirectEdit={handleDirectPdfEdit}
             onBlockReorder={handleBlockReorder}
-            onJumpToSource={(line) => setActiveLine(line)}
+            onJumpToSource={(line) => {
+              setActiveLine(line);
+              editorRef.current?.jumpToLine(line);
+            }}
           />
 
           {/* Bottom Error & Warning Diagnostic Drawer */}
           <DiagnosticDrawer
             diagnostics={diagnostics}
-            onJumpToLine={(line) => setActiveLine(line)}
+            onJumpToLine={(line) => {
+              setActiveLine(line);
+              editorRef.current?.jumpToLine(line);
+            }}
           />
         </div>
       )}
