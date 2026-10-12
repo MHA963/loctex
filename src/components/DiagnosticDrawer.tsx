@@ -8,6 +8,7 @@ import {
   Wrench,
   Copy,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import { DiagnosticError } from '../types/index.ts';
 
@@ -15,16 +16,19 @@ interface DiagnosticDrawerProps {
   diagnostics: DiagnosticError[];
   onJumpToLine: (line: number, file: string) => void;
   onApplyQuickFix?: (diagnostic: DiagnosticError) => void;
+  onAiFixDiagnostic?: (diagnostic: DiagnosticError) => void;
 }
 
 export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
   diagnostics,
   onJumpToLine,
   onApplyQuickFix,
+  onAiFixDiagnostic,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'errors' | 'warnings'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [fixingId, setFixingId] = useState<string | null>(null);
 
   const errors = diagnostics.filter((d) => d.severity === 'error');
   const warnings = diagnostics.filter((d) => d.severity === 'warning');
@@ -175,27 +179,52 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                     </div>
                   )}
 
-                  {/* Smart Fixing Suggestion & Quick Fix Action */}
-                  {item.suggestion && (
+                  {/* Smart Fixing Suggestion, Quick Fix & Qwen 2.5 Coder Repair */}
+                  {(item.suggestion || onAiFixDiagnostic) && (
                     <div className="bg-[#1e1c18] border border-[#3a352a] rounded-lg p-2 flex items-start justify-between gap-2 text-[11px]">
                       <div className="flex items-start gap-1.5 text-[#dcd7cb]">
                         <Lightbulb className="w-3.5 h-3.5 text-[#d4af37] shrink-0 mt-0.5" />
-                        <span>{item.suggestion}</span>
+                        <span>
+                          {item.suggestion ||
+                            'Use Qwen 2.5 Coder to automatically diagnose and patch this LaTeX issue.'}
+                        </span>
                       </div>
 
-                      {item.quickFix && onApplyQuickFix && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onApplyQuickFix(item);
-                          }}
-                          className="px-2.5 py-1 rounded bg-[#d4af37] hover:bg-[#e5c158] text-black font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors shadow-sm"
-                          title={item.quickFix.label}
-                        >
-                          <Wrench className="w-3 h-3" />
-                          <span>{item.quickFix.label}</span>
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.quickFix && onApplyQuickFix && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onApplyQuickFix(item);
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#d4af37] hover:bg-[#e5c158] text-black font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors shadow-sm"
+                            title={item.quickFix.label}
+                          >
+                            <Wrench className="w-3 h-3" />
+                            <span>{item.quickFix.label}</span>
+                          </button>
+                        )}
+
+                        {onAiFixDiagnostic && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setFixingId(item.id);
+                              try {
+                                await onAiFixDiagnostic(item);
+                              } finally {
+                                setFixingId(null);
+                              }
+                            }}
+                            disabled={fixingId === item.id}
+                            className="px-2.5 py-1 rounded bg-[#262218] hover:bg-[#342e1f] text-[#d4af37] border border-[#d4af37]/40 font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors"
+                            title="Repair this error using Qwen 2.5 Coder Search/Replace patch"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>{fixingId === item.id ? 'Fixing...' : 'Qwen Fix'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -10,6 +10,7 @@ import {
   ZoomIn,
   ZoomOut,
   GitCommit,
+  Sparkles,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
 
@@ -21,6 +22,7 @@ interface HeaderPillProps {
   onFitWidth: () => void;
   onCompile: () => void;
   onOpenGitHubActivity?: () => void;
+  onOpenQwenAssistant?: () => void;
   fontFamily: FontFamily;
   onFontFamilyChange: (font: FontFamily) => void;
   fontSize: string;
@@ -49,6 +51,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onFitWidth,
   onCompile,
   onOpenGitHubActivity,
+  onOpenQwenAssistant,
   fontFamily,
   onFontFamilyChange,
   fontSize,
@@ -87,8 +90,8 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
   return (
     <header className="h-10 bg-[#141311] border-b border-[#24221e] px-3 flex items-center justify-between select-none relative z-30 font-sans">
-      {/* Window Controls & GitHub Activity Shortcut */}
-      <div className="flex items-center gap-3 w-1/4">
+      {/* Window Controls & GitHub Activity + Qwen AI Shortcuts */}
+      <div className="flex items-center gap-2 w-1/4">
         <div className="flex items-center gap-1.5 pl-1">
           <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
           <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
@@ -99,13 +102,24 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           <button
             onClick={onOpenGitHubActivity}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1e1d1a] hover:bg-[#282622] text-[#8c887e] hover:text-[#f4f2ec] border border-[#33302a] text-[10px] font-mono transition-colors"
-            title="Inspect 5 GitHub activities & contribution graph"
+            title="Inspect GitHub activities & contribution graph"
           >
             <GitCommit className="w-3 h-3 text-emerald-400" />
-            <span className="hidden md:inline">Activities</span>
+            <span className="hidden lg:inline">Activities</span>
             <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] flex items-center justify-center font-bold">
               5
             </span>
+          </button>
+        )}
+
+        {onOpenQwenAssistant && (
+          <button
+            onClick={onOpenQwenAssistant}
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#242016] hover:bg-[#302a1b] text-[#d4af37] border border-[#d4af37]/40 text-[10px] font-mono transition-colors shadow-sm"
+            title="Open Qwen 2.5 Coder Fast-Edit & Diagnostics (Ctrl+K)"
+          >
+            <Sparkles className="w-3 h-3 text-[#d4af37]" />
+            <span>Qwen 2.5</span>
           </button>
         )}
       </div>

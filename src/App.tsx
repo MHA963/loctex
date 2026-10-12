@@ -7,7 +7,9 @@ import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
 import { ProjectsDashboard } from './components/ProjectsDashboard.tsx';
 import { ImportZipModal, NewProjectModal } from './components/Modals.tsx';
+import { QwenAssistantModal } from './components/QwenAssistantModal.tsx';
 import {
+  AIFastEditResponse,
   CompileStatus,
   DiagnosticError,
   FileItem,
@@ -67,6 +69,7 @@ export default function App() {
   // Modals
   const [importZipOpen, setImportZipOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [qwenModalOpen, setQwenModalOpen] = useState(false);
 
   // Apply theme class to document body
   useEffect(() => {
@@ -220,6 +223,40 @@ export default function App() {
     triggerCompile(newContent);
   };
 
+  // Apply patched content from Qwen 2.5 Coder Fast-Edit or Diagnostic Repair
+  const handleApplyPatchedContent = async (patchedContent: string) => {
+    if (!activeProject) return;
+    setFileContent(patchedContent);
+    await fetch(`/api/projects/${activeProject.id}/file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: activeFile, content: patchedContent }),
+    });
+    triggerCompile(patchedContent);
+  };
+
+  const handleAiFixDiagnostic = async (diagnostic: DiagnosticError) => {
+    if (!activeProject) return;
+    try {
+      const res = await fetch('/api/ai/fix-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diagnostic,
+          fileContent,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as AIFastEditResponse;
+        if (data.success && data.patchedContent) {
+          await handleApplyPatchedContent(data.patchedContent);
+        }
+      }
+    } catch (e) {
+      console.error('Qwen diagnostic repair failed:', e);
+    }
+  };
+
   // Debounced auto-save & compile on editor content change
   useEffect(() => {
     if (!activeProject || !fileContent) return;
@@ -236,12 +273,15 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [fileContent]);
 
-  // Global Shortcuts: Ctrl+S and Ctrl+Enter / Cmd+Enter
+  // Global Shortcuts: Ctrl+S, Ctrl+Enter / Cmd+Enter, and Ctrl+K (Qwen Fast-Edit)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'Enter')) {
         e.preventDefault();
         triggerCompile();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setQwenModalOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -459,6 +499,7 @@ export default function App() {
         onFitWidth={handleFitWidth}
         onCompile={() => triggerCompile()}
         onOpenGitHubActivity={() => setCurrentView('dashboard')}
+        onOpenQwenAssistant={() => setQwenModalOpen(true)}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
         fontSize={fontSize}
@@ -580,6 +621,7 @@ export default function App() {
               editorRef.current?.jumpToLine(line);
             }}
             onApplyQuickFix={handleApplyQuickFix}
+            onAiFixDiagnostic={handleAiFixDiagnostic}
           />
         </div>
       )}
@@ -612,6 +654,14 @@ export default function App() {
             setCompileStatus('error');
           }
         }}
+      />
+
+      <QwenAssistantModal
+        isOpen={qwenModalOpen}
+        onClose={() => setQwenModalOpen(false)}
+        fileContent={fileContent}
+        activeLine={activeLine}
+        onApplyPatchedContent={handleApplyPatchedContent}
       />
     </div>
   );
