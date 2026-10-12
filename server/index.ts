@@ -7,10 +7,13 @@ import { LocTexDatabase } from './db/database.ts';
 import { TectonicRunner } from './compiler/tectonic-runner.ts';
 import { ZipService } from './services/zip-service.ts';
 import { SyncTeXParser } from './services/synctex-parser.ts';
+import { OllamaQwenService } from './services/ollama-service.ts';
+import { AIDiagnosticFixRequest, AIFastEditRequest, QwenModelId } from '../src/types/index.ts';
 
 const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
 const db = new LocTexDatabase();
 const compiler = new TectonicRunner();
+const aiService = new OllamaQwenService();
 
 const LOCTEX_DATA_DIR = path.resolve(process.cwd(), 'loctex_data');
 const PROJECTS_DIR = path.resolve(LOCTEX_DATA_DIR, 'projects');
@@ -528,6 +531,37 @@ fastify.post('/api/journals', async (request) => {
   return { success: true, id };
 });
 
+// --- Local AI (Qwen 2.5 Coder / Ollama) API ---
+fastify.get('/api/ai/status', async () => {
+  return await aiService.getStatus();
+});
+
+fastify.post('/api/ai/model', async (request, reply) => {
+  const body = (request.body || {}) as { model?: QwenModelId };
+  const allowed: QwenModelId[] = ['qwen2.5-coder:1.5b', 'qwen2.5-coder:3b', 'qwen2.5-coder:7b'];
+  if (!body.model || !allowed.includes(body.model)) {
+    return reply.status(400).send({ error: 'Invalid Qwen 2.5 Coder model ID' });
+  }
+  aiService.setActiveModel(body.model);
+  return await aiService.getStatus();
+});
+
+fastify.post('/api/ai/fix-error', async (request, reply) => {
+  const body = (request.body || {}) as AIDiagnosticFixRequest;
+  if (!body.diagnostic || typeof body.fileContent !== 'string') {
+    return reply.status(400).send({ error: 'Missing diagnostic or fileContent payload' });
+  }
+  return await aiService.fixDiagnostic(body);
+});
+
+fastify.post('/api/ai/fast-edit', async (request, reply) => {
+  const body = (request.body || {}) as AIFastEditRequest;
+  if (!body.instruction || typeof body.fileContent !== 'string') {
+    return reply.status(400).send({ error: 'Missing instruction or fileContent payload' });
+  }
+  return await aiService.fastEdit(body);
+});
+
 const PORT = 4173;
 fastify.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
   if (err) {
@@ -536,3 +570,4 @@ fastify.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
   }
   console.log(`⚡ LocTex Engine Server listening on ${address}`);
 });
+
