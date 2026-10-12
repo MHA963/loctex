@@ -2,7 +2,7 @@ export type ThemeName = 'dark-gold' | 'neon-green' | 'charcoal' | 'sepia';
 
 export type WorkspaceMode = 'research-studio' | 'daily-journal';
 
-export type FontFamily = 'Computer Modern' | 'Serif' | 'Inter' | 'Garamond' | 'Geist Mono';
+export type FontFamily = 'EB Garamond' | 'Computer Modern' | 'Source Serif 4' | 'Lora' | 'Merriweather' | 'Geist Mono';
 
 export type CompileStatus = 'ready' | 'compiling' | 'error' | 'idle';
 

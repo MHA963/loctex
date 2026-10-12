@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HeaderPill } from './components/HeaderPill.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
-import { PdfCanvas } from './components/PdfCanvas.tsx';
+import { PdfCanvas, PdfCanvasRef } from './components/PdfCanvas.tsx';
 import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
+import { ProjectsDashboard } from './components/ProjectsDashboard.tsx';
 import { ImportZipModal, NewProjectModal } from './components/Modals.tsx';
 import {
   CompileStatus,
@@ -21,13 +22,17 @@ import {
 
 export default function App() {
   const editorRef = useRef<EditorPaneRef | null>(null);
+  const pdfCanvasRef = useRef<PdfCanvasRef | null>(null);
+
+  // View State: 'dashboard' | 'studio'
+  const [currentView, setCurrentView] = useState<'dashboard' | 'studio'>('studio');
 
   // Theme & Mode State
   const [theme, setTheme] = useState<ThemeName>('dark-gold');
   const [mode, setMode] = useState<WorkspaceMode>('research-studio');
 
   // Typography Settings
-  const [fontFamily, setFontFamily] = useState<FontFamily>('Serif');
+  const [fontFamily, setFontFamily] = useState<FontFamily>('EB Garamond');
   const [fontSize, setFontSize] = useState('11pt');
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
@@ -39,19 +44,24 @@ export default function App() {
   const [zoom, setZoom] = useState(100);
   const [activeLine, setActiveLine] = useState<number | null>(null);
 
+  // Split-Pane Resizable Width (Percentage of main editor width)
+  const [editorWidthPercent, setEditorWidthPercent] = useState<number>(50);
+  const isDraggingSplit = useRef(false);
+
   // Projects & Files State
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [activeFile, setActiveFile] = useState('main.tex');
   const [fileContent, setFileContent] = useState('');
+  const [pdfVersion, setPdfVersion] = useState<number>(Date.now());
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
   const [diagnostics, setDiagnostics] = useState<DiagnosticError[]>([]);
   const [synctexBoxes, setSynctexBoxes] = useState<SyncTeXBox[]>([]);
 
   // Journals State
   const [journals, setJournals] = useState<JournalEntry[]>([]);
-  const [activeDate, setActiveDate] = useState('2026-10-07');
+  const [activeDate, setActiveDate] = useState('2026-10-11');
 
   // Modals
   const [importZipOpen, setImportZipOpen] = useState(false);
@@ -62,88 +72,124 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Initial mock data & API fetch
+  // Load projects on mount
+  const loadProjects = async () => {
+    try {
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      if (data.projects && data.projects.length > 0) {
+        setProjects(data.projects);
+        if (!activeProject) {
+          selectProject(data.projects[0]);
+        }
+      } else {
+        const createRes = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'My Research Paper' }),
+        });
+        const newProj = await createRes.json();
+        setProjects([newProj]);
+        selectProject(newProj);
+      }
+    } catch (e) {
+      console.error('Failed to load projects from server:', e);
+    }
+  };
+
   useEffect(() => {
-    const defaultProj: Project = {
-      id: 'proj-default',
-      name: 'Quantum Optics Paper',
-      root_path: '/data/projects/quantum_optics',
-      active_file: 'main.tex',
-      settings: { theme: 'dark-gold', fontFamily: 'Serif', fontSize: '11pt' },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    setProjects([defaultProj]);
-    setActiveProject(defaultProj);
-
-    setFiles([
-      { name: 'main.tex', path: 'main.tex', isDirectory: false },
-      { name: 'introduction.tex', path: 'introduction.tex', isDirectory: false },
-      { name: 'methodology.tex', path: 'methodology.tex', isDirectory: false },
-      { name: 'results.tex', path: 'results.tex', isDirectory: false },
-      { name: 'discussion.tex', path: 'discussion.tex', isDirectory: false },
-      { name: 'appendix.tex', path: 'appendix.tex', isDirectory: false },
-      { name: 'bibliography.bib', path: 'bibliography.bib', isDirectory: false },
-      {
-        name: 'Figures',
-        path: 'Figures',
-        isDirectory: true,
-        children: [
-          { name: 'flowchart.png', path: 'Figures/flowchart.png', isDirectory: false },
-          { name: 'plot.pdf', path: 'Figures/plot.pdf', isDirectory: false },
-        ],
-      },
-    ]);
-
-    setSnapshots([
-      { id: 's4', projectId: 'proj-default', versionTag: 'v1.4', summary: 'Finalized Ch3', createdAt: '10 mins ago' },
-      { id: 's3', projectId: 'proj-default', versionTag: 'v1.3', summary: 'Edited abstract', createdAt: '2 hours ago' },
-      { id: 's2', projectId: 'proj-default', versionTag: 'v1.2', summary: 'Added math equations', createdAt: 'Yesterday' },
-      { id: 's1', projectId: 'proj-default', versionTag: 'v1.0', summary: 'Initial setup', createdAt: '2 days ago' },
-    ]);
-
-    const defaultCode = `\\documentclass[11pt]{article}
-\\usepackage{graphicx}
-\\usepackage{amsmath,amssymb}
-
-\\begin{document}
-
-\\title{A Novel Approach to LaTeX Workflows}
-\\author{LocTex Research Group}
-\\date{October 2026}
-\\maketitle
-
-\\begin{abstract}
-This paper presents LocTex, an autonomous personal research environment that merges instant local compilation, bidirectional visual PDF text manipulation, and frictionless daily journaling.
-\\end{abstract}
-
-\\section{Introduction}
-Modern academic authoring has historically suffered from cloud lag, multi-tenant bloat, and rigid split-pane barriers. By coupling the Tectonic incremental compiler with local SyncTeX coordinate mapping, users can directly manipulate their compiled documents visually.
-
-\\section{Methodology}
-This section details the approach used to derive the fundamental equation \\eqref{eq:main}.
-
-\\begin{equation}
-\\label{eq:main}
-\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
-\\end{equation}
-
-\\begin{figure}[htbp]
-  \\centering
-  \\includegraphics[width=0.7\\linewidth]{Figures/flowchart.png}
-  \\caption{Bidirectional SyncTeX Architecture}
-  \\label{fig:arch}
-\\end{figure}
-
-The primary results from this analysis (see Figure 2) demonstrate sub-second updates.
-
-\\end{document}
-`;
-    setFileContent(defaultCode);
+    loadProjects();
   }, []);
 
-  // Keyboard shortcut for compilation (Ctrl+S / Cmd+S)
+  // Select project & load files
+  const selectProject = async (project: Project) => {
+    setActiveProject(project);
+    setCurrentView('studio');
+    setPdfVersion(Date.now());
+    try {
+      const filesRes = await fetch(`/api/projects/${project.id}/files`);
+      const filesData = await filesRes.json();
+      if (filesData.files) {
+        setFiles(filesData.files);
+      }
+
+      const targetFile = project.active_file || 'main.tex';
+      setActiveFile(targetFile);
+      const fileRes = await fetch(`/api/projects/${project.id}/file?path=${encodeURIComponent(targetFile)}`);
+      const fileData = await fileRes.json();
+      if (fileData.content) {
+        setFileContent(fileData.content);
+      }
+
+      const snapRes = await fetch(`/api/projects/${project.id}/snapshots`);
+      const snapData = await snapRes.json();
+      if (snapData.snapshots) {
+        setSnapshots(snapData.snapshots);
+      }
+      setCompileStatus('ready');
+    } catch (e) {
+      console.error('Failed to load project details:', e);
+    }
+  };
+
+  // Switch active file
+  const handleSelectFile = async (filePath: string) => {
+    if (!activeProject) return;
+    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+    const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.zip', '.gz', '.ico'];
+    if (binaryExtensions.includes(ext)) {
+      return;
+    }
+    setActiveFile(filePath);
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`);
+      const data = await res.json();
+      if (data.content !== undefined) {
+        setFileContent(data.content);
+      }
+    } catch (e) {
+      console.error('Failed to load file:', e);
+    }
+  };
+
+  // Save & Compile
+  const triggerCompile = async (contentToSave = fileContent) => {
+    if (!activeProject) return;
+    setCompileStatus('compiling');
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/compile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: contentToSave, activeFile }),
+      });
+      const result = await res.json();
+      setCompileStatus(result.success ? 'ready' : 'error');
+      setDiagnostics(result.diagnostics || []);
+      if (result.success) {
+        setPdfVersion(Date.now());
+      }
+    } catch (e) {
+      setCompileStatus('error');
+    }
+  };
+
+  // Debounced auto-save & compile on editor content change
+  useEffect(() => {
+    if (!activeProject || !fileContent) return;
+    const timer = setTimeout(() => {
+      fetch(`/api/projects/${activeProject.id}/file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: activeFile, content: fileContent }),
+      }).then(() => {
+        triggerCompile(fileContent);
+      });
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [fileContent]);
+
+  // Shortcut Ctrl+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -153,15 +199,39 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [fileContent, activeProject]);
 
-  const triggerCompile = async () => {
-    setCompileStatus('compiling');
-    setTimeout(() => {
-      setCompileStatus('ready');
-      setDiagnostics([]);
-    }, 450);
+  // Split-Pane Mouse Dragging Handlers
+  const handleMouseDownSplit = () => {
+    isDraggingSplit.current = true;
+    document.body.style.cursor = 'col-resize';
   };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSplit.current) return;
+      const totalWidth = window.innerWidth - 240; // minus sidebar width (240px)
+      if (totalWidth > 0) {
+        const offset = e.clientX - 240;
+        const newPercent = Math.max(20, Math.min(80, (offset / totalWidth) * 100));
+        setEditorWidthPercent(newPercent);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingSplit.current) {
+        isDraggingSplit.current = false;
+        document.body.style.cursor = 'default';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Topbar Typography Format Actions
   const handleToggleBold = () => {
@@ -184,41 +254,97 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
     editorRef.current?.wrapSelection('\\texttt{', '}');
   };
 
+  // Fit Width Calculation
+  const handleFitWidth = () => {
+    if (pdfCanvasRef.current) {
+      const fitZoom = pdfCanvasRef.current.calculateFitWidth();
+      setZoom(fitZoom);
+    }
+  };
+
   // Direct In-PDF Edit Handler
   const handleDirectPdfEdit = (newText: string, targetLine: number) => {
     const lines = fileContent.split('\n');
     if (targetLine <= lines.length) {
       lines[targetLine - 1] = newText;
-      setFileContent(lines.join('\n'));
-      triggerCompile();
+      const updated = lines.join('\n');
+      setFileContent(updated);
+      triggerCompile(updated);
     }
   };
 
-  // Semantic Block Reorder Handler
-  const handleBlockReorder = (sourceId: string, targetId: string) => {
-    triggerCompile();
+  // File CRUD
+  const handleCreateNewFile = async () => {
+    if (!activeProject) return;
+    const fileName = prompt('Enter new filename (e.g. results.tex or references.bib):');
+    if (fileName) {
+      try {
+        await fetch(`/api/projects/${activeProject.id}/file/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: fileName }),
+        });
+        const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
+        const filesData = await filesRes.json();
+        setFiles(filesData.files || []);
+        handleSelectFile(fileName);
+      } catch (e) {
+        console.error('Failed to create file:', e);
+      }
+    }
   };
 
-  // File selection
-  const handleSelectFile = (path: string) => {
-    setActiveFile(path);
+  const handleDeleteFile = async (filePath: string) => {
+    if (!activeProject) return;
+    try {
+      await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`, {
+        method: 'DELETE',
+      });
+      const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
+      const filesData = await filesRes.json();
+      setFiles(filesData.files || []);
+      if (activeFile === filePath) {
+        handleSelectFile('main.tex');
+      }
+    } catch (e) {
+      console.error('Failed to delete file:', e);
+    }
   };
 
-  // Export PDF
+  const handleRenameFile = async (oldPath: string, newName: string) => {
+    if (!activeProject) return;
+    try {
+      const getRes = await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(oldPath)}`);
+      const getData = await getRes.json();
+      await fetch(`/api/projects/${activeProject.id}/file/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: newName, initialContent: getData.content || '' }),
+      });
+      await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(oldPath)}`, {
+        method: 'DELETE',
+      });
+      const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
+      const filesData = await filesRes.json();
+      setFiles(filesData.files || []);
+      handleSelectFile(newName);
+    } catch (e) {
+      console.error('Failed to rename file:', e);
+    }
+  };
+
   const handleExportPdf = () => {
     if (activeProject) {
       window.open(`/api/projects/${activeProject.id}/export-pdf`, '_blank');
     }
   };
 
-  // Export ZIP
   const handleExportZip = () => {
     if (activeProject) {
       window.open(`/api/projects/${activeProject.id}/export-zip`, '_blank');
     }
   };
 
-  // Import ZIP
   const handleImportZip = async (projectName: string, base64Zip: string) => {
     try {
       const res = await fetch('/api/projects/import-zip', {
@@ -238,12 +364,40 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
           updated_at: new Date().toISOString(),
         };
         setProjects((prev) => [newProj, ...prev]);
-        setActiveProject(newProj);
-        setActiveFile(data.mainFile || 'main.tex');
-        triggerCompile();
+        selectProject(newProj);
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+      if (activeProject?.id === id) {
+        const remaining = projects.filter((p) => p.id !== id);
+        if (remaining.length > 0) selectProject(remaining[0]);
+        else setActiveProject(null);
+      }
+    } catch (e) {
+      console.error('Failed to delete project:', e);
+    }
+  };
+
+  const handleRenameProject = async (id: string, newName: string) => {
+    try {
+      await fetch(`/api/projects/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
+      if (activeProject?.id === id) {
+        setActiveProject((prev) => (prev ? { ...prev, name: newName } : null));
+      }
+    } catch (e) {
+      console.error('Failed to rename project:', e);
     }
   };
 
@@ -254,7 +408,8 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
         compileStatus={compileStatus}
         zoom={zoom}
         onZoomChange={setZoom}
-        onCompile={triggerCompile}
+        onFitWidth={handleFitWidth}
+        onCompile={() => triggerCompile()}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
         fontSize={fontSize}
@@ -271,10 +426,24 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
         onThemeChange={setTheme}
         mode={mode}
         onModeChange={setMode}
+        activeFileName={activeFile}
+        projectName={activeProject?.name || 'My Research'}
       />
 
-      {/* Main Workspace Area */}
-      {mode === 'daily-journal' ? (
+      {/* Main Content Area */}
+      {currentView === 'dashboard' ? (
+        <ProjectsDashboard
+          projects={projects}
+          onOpenProject={(id) => {
+            const p = projects.find((proj) => proj.id === id);
+            if (p) selectProject(p);
+          }}
+          onNewProject={() => setNewProjectOpen(true)}
+          onImportZip={() => setImportZipOpen(true)}
+          onDeleteProject={handleDeleteProject}
+          onRenameProject={handleRenameProject}
+        />
+      ) : mode === 'daily-journal' ? (
         <DailyJournalView
           journals={journals}
           activeDate={activeDate}
@@ -294,14 +463,10 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
         />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Left File Tree & Snapshot Sidebar */}
+          {/* Left File Tree Sidebar */}
           <Sidebar
-            projects={projects}
             activeProject={activeProject}
-            onSelectProject={(id) => {
-              const p = projects.find((proj) => proj.id === id);
-              if (p) setActiveProject(p);
-            }}
+            onOpenDashboard={() => setCurrentView('dashboard')}
             files={files}
             activeFile={activeFile}
             onSelectFile={handleSelectFile}
@@ -312,59 +477,52 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
             onImportZip={() => setImportZipOpen(true)}
             onExportZip={handleExportZip}
             onExportPdf={handleExportPdf}
-            onNewFile={() => {
-              const name = prompt('Enter new filename (e.g. results.tex):');
-              if (name) {
-                setFiles((prev) => [...prev, { name, path: name, isDirectory: false }]);
-              }
-            }}
-            onNewProject={() => setNewProjectOpen(true)}
-            onDeleteProject={(id) => {
-              setProjects((prev) => prev.filter((p) => p.id !== id));
-              if (activeProject?.id === id && projects.length > 1) {
-                setActiveProject(projects.find((p) => p.id !== id) || null);
-              }
-            }}
-            onRenameProject={(id, newName) => {
-              setProjects((prev) =>
-                prev.map((p) => (p.id === id ? { ...p, name: newName } : p))
-              );
-              if (activeProject?.id === id) {
-                setActiveProject((prev) => (prev ? { ...prev, name: newName } : null));
-              }
-            }}
-            onDeleteFile={(filePath) => {
-              setFiles((prev) => prev.filter((f) => f.path !== filePath));
-            }}
-            onRenameFile={(filePath, newName) => {
-              setFiles((prev) =>
-                prev.map((f) => (f.path === filePath ? { ...f, name: newName, path: newName } : f))
-              );
-            }}
+            onNewFile={handleCreateNewFile}
+            onDeleteFile={handleDeleteFile}
+            onRenameFile={handleRenameFile}
           />
 
-          {/* Center LaTeX Editor Pane */}
-          <EditorPane
-            ref={editorRef}
-            content={fileContent}
-            onChange={setFileContent}
-            diagnostics={diagnostics}
-            activeLine={activeLine}
-          />
+          {/* Center LaTeX Code Editor Pane (Adjustable Width) */}
+          <div style={{ width: `${editorWidthPercent}%` }} className="h-full flex flex-col">
+            <EditorPane
+              ref={editorRef}
+              content={fileContent}
+              onChange={setFileContent}
+              diagnostics={diagnostics}
+              activeLine={activeLine}
+            />
+          </div>
 
-          {/* Right Interactive PDF Canvas Pane */}
-          <PdfCanvas
-            zoom={zoom}
-            synctexBoxes={synctexBoxes}
-            onDirectEdit={handleDirectPdfEdit}
-            onBlockReorder={handleBlockReorder}
-            onJumpToSource={(line) => {
-              setActiveLine(line);
-              editorRef.current?.jumpToLine(line);
-            }}
-          />
+          {/* Draggable Horizontal Splitter Bar */}
+          <div
+            onMouseDown={handleMouseDownSplit}
+            className="w-1.5 bg-[#1a1916] hover:bg-[#d4af37] cursor-col-resize flex items-center justify-center transition-colors z-20 select-none group"
+            title="Drag to resize Editor / PDF view"
+          >
+            <div className="w-0.5 h-6 bg-[#3d3a33] group-hover:bg-black rounded-full" />
+          </div>
 
-          {/* Bottom Error & Warning Diagnostic Drawer */}
+          {/* Right Interactive PDF Canvas Pane (Adjustable Width) */}
+          <div style={{ width: `${100 - editorWidthPercent}%` }} className="h-full flex flex-col">
+            <PdfCanvas
+              ref={pdfCanvasRef}
+              projectId={activeProject?.id || null}
+              pdfVersion={pdfVersion}
+              zoom={zoom}
+              onZoomChange={setZoom}
+              compileStatus={compileStatus}
+              onCompile={() => triggerCompile()}
+              fontFamily={fontFamily}
+              texContent={fileContent}
+              synctexBoxes={synctexBoxes}
+              onJumpToSource={(line) => {
+                setActiveLine(line);
+                editorRef.current?.jumpToLine(line);
+              }}
+            />
+          </div>
+
+          {/* Bottom Diagnostic Drawer */}
           <DiagnosticDrawer
             diagnostics={diagnostics}
             onJumpToLine={(line) => {
@@ -385,18 +543,23 @@ The primary results from this analysis (see Figure 2) demonstrate sub-second upd
       <NewProjectModal
         isOpen={newProjectOpen}
         onClose={() => setNewProjectOpen(false)}
-        onCreate={(name) => {
-          const newProj: Project = {
-            id: `proj-${Date.now()}`,
-            name,
-            root_path: `/data/projects/${name.toLowerCase().replace(/\s+/g, '_')}`,
-            active_file: 'main.tex',
-            settings: { theme, fontFamily, fontSize },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          setProjects((prev) => [newProj, ...prev]);
-          setActiveProject(newProj);
+        onCreate={async (name, template) => {
+          try {
+            setCompileStatus('compiling');
+            const res = await fetch('/api/projects', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, template }),
+            });
+            const newProj = await res.json();
+            setProjects((prev) => [newProj, ...prev]);
+            await selectProject(newProj);
+            setPdfVersion(Date.now());
+            setCompileStatus('ready');
+          } catch (e) {
+            console.error(e);
+            setCompileStatus('error');
+          }
         }}
       />
     </div>

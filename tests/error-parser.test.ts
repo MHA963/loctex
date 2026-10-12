@@ -34,4 +34,31 @@ LaTeX Warning: Citation 'smith2024' on page 1 undefined on input line 42.
     expect(errors[0].line).toBe(42);
     expect(errors[0].message).toContain("Citation 'smith2024'");
   });
+
+  it('should parse math mode missing dollar error', () => {
+    const log = `
+(./main.tex
+! Missing $ inserted.
+<inserted text> 
+                $
+l.15 \\alpha
+           + \\beta = 1
+)
+    `;
+    const errors = LaTeXErrorParser.parse(log, 'main.tex');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].line).toBe(15);
+    expect(errors[0].message).toContain('Missing $ inserted');
+  });
+
+  it('should return empty array for clean compilation log', () => {
+    const log = `
+Output written on main.pdf (1 page, 114491 bytes).
+SyncTeX written on main.synctex.gz.
+Transcript written on main.log.
+    `;
+    const errors = LaTeXErrorParser.parse(log, 'main.tex');
+    expect(errors.length).toBe(0);
+  });
 });

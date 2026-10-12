@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
-import katex from 'katex';
+import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { stex } from '@codemirror/legacy-modes/mode/stex';
+import { tags as t } from '@lezer/highlight';
 import { DiagnosticError } from '../types/index.ts';
 
 export interface EditorPaneRef {
@@ -20,11 +22,24 @@ interface EditorPaneProps {
   activeLine?: number | null;
 }
 
+// Custom Vibrant LaTeX Highlight Style
+const latexHighlightStyle = HighlightStyle.define([
+  { tag: t.keyword, color: '#38bdf8', fontWeight: 'bold' }, // \documentclass, \section, \begin
+  { tag: t.atom, color: '#d4af37' }, // LaTeX macros & commands
+  { tag: t.bracket, color: '#fbbf24' }, // { } and [ ]
+  { tag: t.string, color: '#a7f3d0' }, // Strings & text arguments
+  { tag: t.comment, color: '#64748b', fontStyle: 'italic' }, // % Comments
+  { tag: t.number, color: '#f472b6' }, // Numbers & dimensions (11pt)
+  { tag: t.variableName, color: '#e2e8f0' }, // Identifiers
+  { tag: t.propertyName, color: '#fb923c' }, // Options & tags
+  { tag: t.operator, color: '#38bdf8' }, // Math operators
+  { tag: t.heading, color: '#38bdf8', fontWeight: 'bold' },
+]);
+
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
   ({ content, onChange, diagnostics, onLineClick, activeLine }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
-    const [inlineMath, setInlineMath] = useState<string | null>('\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}');
 
     // Expose imperative methods for topbar formatting
     useImperativeHandle(ref, () => ({
@@ -37,8 +52,12 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
 
         viewRef.current.dispatch({
           changes: { from: selection.from, to: selection.to, insert: replacement },
-          selection: { anchor: selection.from + prefix.length, head: selection.from + prefix.length + (selectedText.length || 4) },
+          selection: {
+            anchor: selection.from + prefix.length,
+            head: selection.from + prefix.length + (selectedText.length || 4),
+          },
         });
+        viewRef.current.focus();
       },
       insertSnippet: (snippet: string) => {
         if (!viewRef.current) return;
@@ -48,6 +67,7 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
           changes: { from: selection.from, to: selection.to, insert: snippet },
           selection: { anchor: selection.from + snippet.length },
         });
+        viewRef.current.focus();
       },
       jumpToLine: (line: number) => {
         if (!viewRef.current || line <= 0) return;
@@ -57,8 +77,9 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
             selection: { anchor: docLine.from },
             scrollIntoView: true,
           });
+          viewRef.current.focus();
         } catch (e) {
-          // ignore
+          // ignore out of bounds
         }
       },
     }));
@@ -74,16 +95,19 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
         options: [
           { label: '\\section', type: 'keyword', info: 'Section heading' },
           { label: '\\subsection', type: 'keyword', info: 'Subsection heading' },
+          { label: '\\subsubsection', type: 'keyword', info: 'Subsubsection heading' },
           { label: '\\begin{equation}', type: 'snippet', apply: '\\begin{equation}\n  ${}\n\\end{equation}' },
           { label: '\\begin{figure}', type: 'snippet', apply: '\\begin{figure}[htbp]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{${}}\n  \\caption{${}}\n  \\label{fig:${}}\n\\end{figure}' },
           { label: '\\begin{table}', type: 'snippet', apply: '\\begin{table}[htbp]\n  \\centering\n  \\begin{tabular}{|c|c|}\n    \\hline\n    A & B \\\\\n    \\hline\n  \\end{tabular}\n  \\caption{${}}\n\\end{table}' },
           { label: '\\cite', type: 'function', info: 'BibTeX Citation' },
           { label: '\\ref', type: 'function', info: 'Cross reference' },
+          { label: '\\eqref', type: 'function', info: 'Equation reference' },
           { label: '\\textbf', type: 'function', info: 'Bold text' },
           { label: '\\textit', type: 'function', info: 'Italic text' },
           { label: '\\underline', type: 'function', info: 'Underline text' },
-          { label: '\\texttt', type: 'function', info: 'Monospace text' },
+          { label: '\\texttt', type: 'function', info: 'Monospace code text' },
           { label: '\\usepackage', type: 'keyword', info: 'Import LaTeX package' },
+          { label: '\\item', type: 'keyword', info: 'List item' },
         ],
       };
     };
@@ -91,33 +115,40 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
     useEffect(() => {
       if (!editorRef.current) return;
 
-      const darkTheme = EditorView.theme({
+      const editorTheme = EditorView.theme({
         '&': {
-          color: 'var(--text-primary)',
-          backgroundColor: 'var(--bg-primary)',
-          fontSize: '13px',
-          fontFamily: "'Geist Mono', 'Fira Code', monospace",
+          color: '#f4f2ec',
+          backgroundColor: 'var(--bg-primary, #0e0d0b)',
+          fontSize: '13.5px',
+          fontFamily: "'Geist Mono', 'Fira Code', 'Cascadia Code', monospace",
           height: '100%',
+          lineHeight: '1.6',
         },
         '.cm-content': {
-          caretColor: 'var(--accent-primary)',
+          caretColor: '#d4af37',
           padding: '16px 0',
         },
         '.cm-cursor': {
-          borderLeftColor: 'var(--accent-primary)',
+          borderLeftColor: '#d4af37',
+          borderLeftWidth: '2px',
         },
         '.cm-gutters': {
-          backgroundColor: 'var(--bg-primary)',
-          color: 'var(--text-muted)',
-          borderRight: '1px solid var(--border-color-subtle)',
-          paddingRight: '8px',
+          backgroundColor: 'var(--bg-primary, #0e0d0b)',
+          color: '#525048',
+          borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+          paddingRight: '10px',
+          paddingLeft: '4px',
         },
         '.cm-activeLine': {
-          backgroundColor: 'var(--bg-surface)',
+          backgroundColor: 'rgba(212, 175, 55, 0.07)',
         },
         '.cm-activeLineGutter': {
-          backgroundColor: 'var(--bg-surface-hover)',
-          color: 'var(--accent-primary)',
+          backgroundColor: 'rgba(212, 175, 55, 0.15)',
+          color: '#d4af37',
+          fontWeight: 'bold',
+        },
+        '.cm-selectionBackground, ::selection': {
+          backgroundColor: 'rgba(212, 175, 55, 0.25) !important',
         },
       });
 
@@ -128,19 +159,15 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
           highlightActiveLineGutter(),
           highlightSpecialChars(),
           history(),
+          StreamLanguage.define(stex),
+          syntaxHighlighting(latexHighlightStyle),
           autocompletion({ override: [latexCompletions] }),
           keymap.of([...defaultKeymap, ...historyKeymap]),
-          darkTheme,
+          editorTheme,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               const newDoc = update.state.doc.toString();
               onChange(newDoc);
-
-              // Extract main equation for inline math preview card
-              const match = newDoc.match(/\\begin\{equation\}([\s\S]*?)\\end\{equation\}/);
-              if (match && match[1]) {
-                setInlineMath(match[1].replace(/\\label\{[^}]*\}/g, '').trim());
-              }
             }
           }),
         ],
@@ -158,7 +185,7 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
       };
     }, []);
 
-    // Sync content when changed externally
+    // Sync content when changed externally (e.g. from file switch or PDF direct edit)
     useEffect(() => {
       if (viewRef.current && content !== viewRef.current.state.doc.toString()) {
         viewRef.current.dispatch({
@@ -171,42 +198,22 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
     useEffect(() => {
       if (viewRef.current && activeLine && activeLine > 0) {
         try {
-          const line = viewRef.current.state.doc.line(Math.min(activeLine, viewRef.current.state.doc.lines));
+          const docLine = viewRef.current.state.doc.line(Math.min(activeLine, viewRef.current.state.doc.lines));
           viewRef.current.dispatch({
-            selection: { anchor: line.from },
+            selection: { anchor: docLine.from, head: docLine.to },
             scrollIntoView: true,
           });
+          viewRef.current.focus();
         } catch (e) {
           // ignore
         }
       }
     }, [activeLine]);
 
-    const renderMathHtml = (tex: string) => {
-      try {
-        return katex.renderToString(tex, { displayMode: true, throwOnError: false });
-      } catch (e) {
-        return tex;
-      }
-    };
-
     return (
-      <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[var(--border-color-subtle)] relative overflow-hidden">
-        <div className="flex-1 overflow-auto" ref={editorRef} />
-
-        {/* Inline Math Equation Preview Card */}
-        {inlineMath && (
-          <div className="m-4 p-4 rounded-xl bg-[var(--bg-surface)]/80 backdrop-blur-md border border-[var(--border-color)] shadow-2xl transition-all">
-            <div className="text-[10px] uppercase font-mono tracking-widest text-[var(--text-muted)] mb-2 flex items-center justify-between">
-              <span>Inline Math Preview</span>
-              <span className="text-[var(--accent-primary)] font-semibold">LaTeX (KaTeX)</span>
-            </div>
-            <div
-              className="text-center py-2 text-[var(--text-primary)] overflow-x-auto text-base select-none"
-              dangerouslySetInnerHTML={{ __html: renderMathHtml(inlineMath) }}
-            />
-          </div>
-        )}
+      <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[#24221e] relative overflow-hidden">
+        {/* Full Height CodeMirror LaTeX Editor with Syntax Colors */}
+        <div className="flex-1 h-full overflow-auto" ref={editorRef} />
       </div>
     );
   }
