@@ -41,6 +41,7 @@ export default function App() {
 
   // Compilation & Zoom State
   const [compileStatus, setCompileStatus] = useState<CompileStatus>('ready');
+  const [compileDurationMs, setCompileDurationMs] = useState<number | undefined>(undefined);
   const [zoom, setZoom] = useState(100);
   const [activeLine, setActiveLine] = useState<number | null>(null);
 
@@ -165,12 +166,58 @@ export default function App() {
       const result = await res.json();
       setCompileStatus(result.success ? 'ready' : 'error');
       setDiagnostics(result.diagnostics || []);
+      if (result.durationMs !== undefined) {
+        setCompileDurationMs(result.durationMs);
+      }
       if (result.success) {
         setPdfVersion(Date.now());
       }
     } catch (e) {
       setCompileStatus('error');
     }
+  };
+
+  // Automated Quick-Fix Handler
+  const handleApplyQuickFix = async (diagnostic: DiagnosticError) => {
+    if (!diagnostic.quickFix || !activeProject) return;
+    const { action, payload, target } = diagnostic.quickFix;
+
+    let newContent = fileContent;
+
+    if (action === 'insert_package') {
+      const docClassRegex = /(\\documentclass(?:\[[^\]]*\])?\{[^}]+\})/;
+      if (docClassRegex.test(newContent)) {
+        newContent = newContent.replace(docClassRegex, `$1\n${payload}`);
+      } else {
+        newContent = `${payload}\n${newContent}`;
+      }
+    } else if (action === 'replace') {
+      const lines = newContent.split('\n');
+      const lineIdx = diagnostic.line - 1;
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        if (target && lines[lineIdx].includes(target)) {
+          lines[lineIdx] = lines[lineIdx].replace(target, payload);
+        } else {
+          lines[lineIdx] = `${lines[lineIdx]} % ${payload}`;
+        }
+        newContent = lines.join('\n');
+      }
+    } else if (action === 'wrap_math') {
+      const lines = newContent.split('\n');
+      const lineIdx = diagnostic.line - 1;
+      if (lineIdx >= 0 && lineIdx < lines.length) {
+        lines[lineIdx] = `$${lines[lineIdx].trim()}$`;
+        newContent = lines.join('\n');
+      }
+    }
+
+    setFileContent(newContent);
+    await fetch(`/api/projects/${activeProject.id}/file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: activeFile, content: newContent }),
+    });
+    triggerCompile(newContent);
   };
 
   // Debounced auto-save & compile on editor content change
@@ -189,10 +236,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [fileContent]);
 
-  // Shortcut Ctrl+S
+  // Global Shortcuts: Ctrl+S and Ctrl+Enter / Cmd+Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'Enter')) {
         e.preventDefault();
         triggerCompile();
       }
@@ -406,10 +453,12 @@ export default function App() {
       {/* Topbar / Floating Header Pill */}
       <HeaderPill
         compileStatus={compileStatus}
+        compileDurationMs={compileDurationMs}
         zoom={zoom}
         onZoomChange={setZoom}
         onFitWidth={handleFitWidth}
         onCompile={() => triggerCompile()}
+        onOpenGitHubActivity={() => setCurrentView('dashboard')}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
         fontSize={fontSize}
@@ -490,6 +539,7 @@ export default function App() {
               onChange={setFileContent}
               diagnostics={diagnostics}
               activeLine={activeLine}
+              onCompile={() => triggerCompile()}
             />
           </div>
 
@@ -529,6 +579,7 @@ export default function App() {
               setActiveLine(line);
               editorRef.current?.jumpToLine(line);
             }}
+            onApplyQuickFix={handleApplyQuickFix}
           />
         </div>
       )}
