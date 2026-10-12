@@ -36,6 +36,13 @@ export interface FileItem {
   size?: number;
 }
 
+export interface DiagnosticQuickFix {
+  label: string;
+  action: 'insert_package' | 'replace' | 'wrap_math' | 'custom';
+  payload: string;
+  target?: string;
+}
+
 export interface DiagnosticError {
   id: string;
   file: string;
@@ -43,6 +50,8 @@ export interface DiagnosticError {
   message: string;
   severity: 'error' | 'warning';
   excerpt?: string;
+  suggestion?: string;
+  quickFix?: DiagnosticQuickFix;
 }
 
 export interface VersionSnapshot {
