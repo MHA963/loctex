@@ -19,6 +19,25 @@ of your error message was never \\def'ed.
     expect(errors[0].severity).toBe('error');
     expect(errors[0].line).toBe(24);
     expect(errors[0].message).toContain('Undefined control sequence');
+    expect(errors[0].suggestion).toContain("Typo detected in command '\\sectioin'");
+    expect(errors[0].quickFix?.action).toBe('replace');
+    expect(errors[0].quickFix?.payload).toBe('\\section');
+  });
+
+  it('should generate package insertion quick fix for amsmath commands', () => {
+    const log = `
+(./main.tex
+! Undefined control sequence.
+l.30 \\eqref
+           {eq:euler}
+)
+    `;
+
+    const errors = LaTeXErrorParser.parse(log, 'main.tex');
+    expect(errors.length).toBe(1);
+    expect(errors[0].suggestion).toContain('amsmath');
+    expect(errors[0].quickFix?.action).toBe('insert_package');
+    expect(errors[0].quickFix?.payload).toBe('\\usepackage{amsmath}');
   });
 
   it('should parse LaTeX warnings with line numbers', () => {
@@ -33,6 +52,7 @@ LaTeX Warning: Citation 'smith2024' on page 1 undefined on input line 42.
     expect(errors[0].severity).toBe('warning');
     expect(errors[0].line).toBe(42);
     expect(errors[0].message).toContain("Citation 'smith2024'");
+    expect(errors[0].suggestion).toContain('Citation key undefined');
   });
 
   it('should parse math mode missing dollar error', () => {
@@ -50,6 +70,7 @@ l.15 \\alpha
     expect(errors[0].severity).toBe('error');
     expect(errors[0].line).toBe(15);
     expect(errors[0].message).toContain('Missing $ inserted');
+    expect(errors[0].quickFix?.action).toBe('wrap_math');
   });
 
   it('should return empty array for clean compilation log', () => {
