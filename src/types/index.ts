@@ -84,3 +84,59 @@ export interface SyncTeXBox {
   column?: number;
   tag?: string;
 }
+
+export type QwenModelId = 'qwen2.5-coder:1.5b' | 'qwen2.5-coder:3b' | 'qwen2.5-coder:7b';
+
+export interface QwenModelSpec {
+  id: QwenModelId;
+  name: string;
+  parameters: string;
+  quantization: string;
+  vramGb: string;
+  speedTokSec: string;
+  contextWindow: string;
+  description: string;
+  installed: boolean;
+}
+
+export interface AIStatusResponse {
+  ollamaAvailable: boolean;
+  endpoint: string;
+  activeModel: QwenModelId;
+  installedModels: string[];
+  models: QwenModelSpec[];
+  fallbackEngine: string;
+  installCommand: string;
+}
+
+export interface SearchReplacePatch {
+  search: string;
+  replace: string;
+  explanation: string;
+}
+
+export interface AIFastEditRequest {
+  instruction: string;
+  selectedText?: string;
+  fileContent: string;
+  activeLine?: number;
+  model?: QwenModelId;
+}
+
+export interface AIFastEditResponse {
+  success: boolean;
+  explanation: string;
+  search: string;
+  replace: string;
+  patchedContent: string;
+  modelUsed: string;
+  latencyMs: number;
+  usedFallback: boolean;
+}
+
+export interface AIDiagnosticFixRequest {
+  diagnostic: DiagnosticError;
+  fileContent: string;
+  model?: QwenModelId;
+}
+
