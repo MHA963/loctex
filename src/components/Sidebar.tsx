@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Folder,
   FileText,
   Clock,
-  UploadCloud,
-  Download,
   Plus,
   Trash2,
   Edit2,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   FileCode,
-  Image,
-  ArrowUpDown,
+  LayoutGrid,
+  FilePlus,
+  FolderPlus,
+  Download,
+  Archive,
 } from 'lucide-react';
 import { FileItem, Project, VersionSnapshot } from '../types/index.ts';
 
 interface SidebarProps {
-  projects: Project[];
   activeProject: Project | null;
-  onSelectProject: (id: string) => void;
+  onOpenDashboard: () => void;
   files: FileItem[];
   activeFile: string;
   onSelectFile: (filePath: string) => void;
@@ -29,17 +30,13 @@ interface SidebarProps {
   onExportZip: () => void;
   onExportPdf: () => void;
   onNewFile: () => void;
-  onNewProject: () => void;
-  onDeleteProject: (id: string) => void;
-  onRenameProject: (id: string, newName: string) => void;
   onDeleteFile: (path: string) => void;
   onRenameFile: (path: string, newName: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  projects,
   activeProject,
-  onSelectProject,
+  onOpenDashboard,
   files,
   activeFile,
   onSelectFile,
@@ -49,54 +46,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onExportZip,
   onExportPdf,
   onNewFile,
-  onNewProject,
-  onDeleteProject,
-  onRenameProject,
   onDeleteFile,
   onRenameFile,
 }) => {
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [sortOrder, setSortOrder] = useState<'name' | 'date'>('name');
-  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({ Figures: true, Chapters: true });
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    if (isExportMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExportMenuOpen]);
 
   const toggleFolder = (folderPath: string) => {
     setExpandedFolders((prev) => ({ ...prev, [folderPath]: !prev[folderPath] }));
   };
 
-  const sortedFiles = [...files].sort((a, b) => {
-    if (a.isDirectory && !b.isDirectory) return -1;
-    if (!a.isDirectory && b.isDirectory) return 1;
-    return a.name.localeCompare(b.name);
-  });
-
   const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[var(--accent-primary)]" />;
+    if (fileName.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[#d4af37]" />;
     if (fileName.endsWith('.bib')) return <FileCode className="w-3.5 h-3.5 text-blue-400" />;
-    if (fileName.match(/\.(png|jpg|jpeg|svg|pdf)$/i)) return <Image className="w-3.5 h-3.5 text-amber-400" />;
-    return <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />;
+    return <FileText className="w-3.5 h-3.5 text-[#78746c]" />;
   };
 
-  const renderFileTree = (items: FileItem[], depth = 0) => {
+  const renderTree = (items: FileItem[], depth = 0) => {
     return items.map((item) => {
       const isSelected = activeFile === item.path;
+
       if (item.isDirectory) {
         const isExpanded = expandedFolders[item.path] ?? true;
         return (
           <div key={item.path} className="select-none">
             <div
               onClick={() => toggleFolder(item.path)}
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
-              className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-[var(--bg-surface)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer group"
+              style={{ paddingLeft: `${depth * 10 + 6}px` }}
+              className="flex items-center justify-between py-1 px-1.5 rounded-md hover:bg-[#1a1916] text-xs text-[#a8a49c] hover:text-[#f4f2ec] cursor-pointer group"
             >
               <div className="flex items-center gap-1.5 overflow-hidden">
-                {isExpanded ? <ChevronDown className="w-3 h-3 text-[var(--text-muted)]" /> : <ChevronRight className="w-3 h-3 text-[var(--text-muted)]" />}
-                <Folder className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--accent-primary)]" />
+                <ChevronDown className={`w-3 h-3 text-[#78746c] transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                <Folder className="w-3.5 h-3.5 text-[#78746c]" />
                 <span className="truncate">{item.name}</span>
               </div>
             </div>
-            {isExpanded && item.children && renderFileTree(item.children, depth + 1)}
+            {isExpanded && item.children && renderTree(item.children, depth + 1)}
           </div>
         );
       }
@@ -105,16 +105,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           key={item.path}
           onClick={() => onSelectFile(item.path)}
-          style={{ paddingLeft: `${depth * 12 + 16}px` }}
+          style={{ paddingLeft: `${depth * 10 + 16}px` }}
           className={`flex items-center justify-between py-1 px-2 rounded-md text-xs cursor-pointer group transition-colors ${
             isSelected
-              ? 'bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] font-medium border-l-2 border-[var(--accent-primary)]'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]'
+              ? 'bg-[#262420] text-[#f4f2ec] font-medium shadow-sm border-l-2 border-[#d4af37]'
+              : 'text-[#a8a49c] hover:bg-[#1a1916] hover:text-[#f4f2ec]'
           }`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
             {getFileIcon(item.name)}
             <span className="truncate">{item.name}</span>
+            {item.name.endsWith('.bib') && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.8)] inline-block" />
+            )}
           </div>
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -126,8 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onRenameFile(item.path, newName);
                 }
               }}
-              className="p-0.5 hover:text-[var(--accent-primary)] text-[var(--text-muted)]"
-              title="Rename File"
+              className="p-0.5 hover:text-[#d4af37] text-[#78746c]"
+              title="Rename"
             >
               <Edit2 className="w-2.5 h-2.5" />
             </button>
@@ -138,8 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onDeleteFile(item.path);
                 }
               }}
-              className="p-0.5 hover:text-rose-400 text-[var(--text-muted)]"
-              title="Delete File"
+              className="p-0.5 hover:text-rose-400 text-[#78746c]"
+              title="Delete"
             >
               <Trash2 className="w-2.5 h-2.5" />
             </button>
@@ -150,139 +153,74 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border-color-subtle)] flex flex-col justify-between select-none h-full z-20">
-      {/* Top Project Selector */}
-      <div className="p-3 border-b border-[var(--border-color-subtle)]">
-        <div className="relative">
-          <button
-            onClick={() => setProjectMenuOpen(!projectMenuOpen)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] rounded-lg border border-[var(--border-color-subtle)] text-xs text-[var(--text-primary)] font-medium transition-colors"
-          >
-            <div className="flex items-center gap-2 overflow-hidden">
-              <Folder className="w-3.5 h-3.5 text-[var(--accent-primary)] shrink-0" />
-              <span className="truncate">{activeProject?.name || 'Select Project'}</span>
-            </div>
-            <ChevronDown className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
-          </button>
+    <aside className="w-60 bg-[#12110f] border-r border-[#24221e] flex flex-col justify-between select-none h-full z-20 text-[#a8a49c] font-sans">
+      {/* Top Header: All Projects Dashboard Button + New File */}
+      <div className="p-3 pb-2 flex items-center justify-between border-b border-[#24221e]/60">
+        <button
+          onClick={onOpenDashboard}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#1e1d1a] hover:bg-[#2a2824] text-[11px] text-[#f4f2ec] font-medium border border-[#33302a] transition-colors"
+          title="Return to Projects Dashboard"
+        >
+          <LayoutGrid className="w-3.5 h-3.5 text-[#d4af37]" />
+          <span>All Projects</span>
+        </button>
 
-          {projectMenuOpen && (
-            <div className="absolute top-full mt-1 left-0 w-full bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 max-h-60 overflow-y-auto">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)] flex items-center justify-between">
-                <span>Projects</span>
-                <button
-                  onClick={() => {
-                    onNewProject();
-                    setProjectMenuOpen(false);
-                  }}
-                  className="hover:text-[var(--accent-primary)] flex items-center gap-0.5"
-                >
-                  <Plus className="w-3 h-3" /> New
-                </button>
-              </div>
-
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    onSelectProject(p.id);
-                    setProjectMenuOpen(false);
-                  }}
-                  className={`px-2.5 py-1.5 text-xs hover:bg-[var(--bg-surface-hover)] cursor-pointer flex items-center justify-between group ${
-                    activeProject?.id === p.id ? 'text-[var(--accent-primary)] font-medium' : 'text-[var(--text-primary)]'
-                  }`}
-                >
-                  {renamingProjectId === p.id ? (
-                    <input
-                      type="text"
-                      value={renameValue}
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          onRenameProject(p.id, renameValue);
-                          setRenamingProjectId(null);
-                        } else if (e.key === 'Escape') {
-                          setRenamingProjectId(null);
-                        }
-                      }}
-                      className="bg-[var(--bg-primary)] px-1 rounded text-xs w-full text-[var(--text-primary)]"
-                    />
-                  ) : (
-                    <span className="truncate">{p.name}</span>
-                  )}
-
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenamingProjectId(p.id);
-                        setRenameValue(p.name);
-                      }}
-                      className="p-1 hover:text-[var(--accent-primary)] text-[var(--text-muted)]"
-                      title="Rename"
-                    >
-                      <Edit2 className="w-2.5 h-2.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete project '${p.name}'?`)) {
-                          onDeleteProject(p.id);
-                        }
-                      }}
-                      className="p-1 hover:text-rose-400 text-[var(--text-muted)]"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <button
+          onClick={onNewFile}
+          className="flex items-center gap-1 p-1 rounded-md hover:bg-[#1e1d1a] text-[#8c887e] hover:text-[#f4f2ec] transition-colors text-[11px]"
+          title="New File in Project"
+        >
+          <Plus className="w-3.5 h-3.5 text-[#d4af37]" />
+          <span>New</span>
+        </button>
       </div>
 
-      {/* Center Section: Files Tree & Snapshots */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-4">
-        {/* Project Files Header */}
-        <div>
-          <div className="flex items-center justify-between px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            <span>Files</span>
-            <button
-              onClick={onNewFile}
-              className="p-1 rounded hover:bg-[var(--bg-surface)] hover:text-[var(--accent-primary)] transition-colors"
-              title="New File"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+      {/* Main File Tree */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+        <div className="space-y-1">
+          {/* Active Project Root */}
+          <div className="flex items-center gap-1.5 py-1 text-xs font-semibold text-[#f4f2ec] truncate">
+            <Folder className="w-3.5 h-3.5 text-[#d4af37]" />
+            <span className="truncate">{activeProject?.name || 'My Research'}</span>
           </div>
 
-          <div className="mt-1 space-y-0.5">{renderFileTree(sortedFiles)}</div>
+          {/* Dynamic Real File Tree */}
+          <div className="space-y-0.5 pt-1">
+            {files.length === 0 ? (
+              <div className="text-[11px] text-[#78746c] italic py-2 pl-2">No files found</div>
+            ) : (
+              renderTree(files)
+            )}
+          </div>
         </div>
 
         {/* History Timeline */}
-        <div className="pt-2 border-t border-[var(--border-color-subtle)]">
-          <div className="flex items-center justify-between px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3 h-3" /> History Timeline
-            </span>
+        <div className="pt-3 border-t border-[#24221e]/80">
+          <div className="text-[11px] font-medium text-[#f4f2ec] mb-2 flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-[#78746c]" />
+            <span>History Timeline</span>
           </div>
 
-          <div className="mt-1.5 space-y-1.5 px-2">
+          <div className="pl-1 relative space-y-2 text-xs">
+            <div className="absolute left-[3px] top-1.5 bottom-1.5 w-px bg-[#33302a]" />
+
             {snapshots.length === 0 ? (
-              <div className="text-[11px] text-[var(--text-muted)] italic py-1">No snapshots recorded yet</div>
+              <div className="text-[11px] text-[#78746c] italic pl-3">Auto-records on compile</div>
             ) : (
-              snapshots.map((snap) => (
+              snapshots.map((snap, i) => (
                 <div
                   key={snap.id}
                   onClick={() => onSelectSnapshot(snap)}
-                  className="flex items-center gap-2 text-xs text-[var(--text-secondary)] hover:text-[var(--accent-primary)] cursor-pointer group py-0.5"
+                  className="flex items-center gap-2.5 relative z-10 cursor-pointer group"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--border-color)] group-hover:bg-[var(--accent-primary)] transition-colors" />
-                  <span className="font-mono text-[11px] text-[var(--text-primary)]">{snap.versionTag}</span>
-                  <span className="text-[11px] text-[var(--text-muted)] truncate">{snap.summary}</span>
+                  <span
+                    className={`w-2 h-2 rounded-full border border-[#12110f] ${
+                      i === 0 ? 'bg-[#f4f2ec]' : 'bg-[#78746c] group-hover:bg-[#f4f2ec]'
+                    }`}
+                  />
+                  <span className="text-[#a8a49c] group-hover:text-[#f4f2ec] text-[11px] truncate">
+                    {snap.versionTag}: {snap.summary}
+                  </span>
                 </div>
               ))
             )}
@@ -290,31 +228,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom Action Bar: Import ZIP & Export Project */}
-      <div className="p-3 border-t border-[var(--border-color-subtle)] bg-[var(--bg-primary)]/60 space-y-2">
+      {/* Bottom Actions: [ Import ZIP ] [ Export Menu ] */}
+      <div className="p-3 border-t border-[#24221e] grid grid-cols-2 gap-2 bg-[#12110f] relative" ref={exportMenuRef}>
         <button
           onClick={onImportZip}
-          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-color-subtle)] hover:border-[var(--border-color)] text-xs text-[var(--text-primary)] font-medium transition-all shadow-sm"
+          className="px-3 py-1.5 rounded-lg bg-[#24221e] hover:bg-[#33302a] text-[#f4f2ec] text-xs font-medium transition-colors text-center border border-[#33302a]/60 shadow-sm"
         >
-          <UploadCloud className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
           Import ZIP
         </button>
 
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="relative">
           <button
-            onClick={onExportZip}
-            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-color-subtle)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+            className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors text-center border shadow-sm flex items-center justify-center gap-1.5 ${
+              isExportMenuOpen
+                ? 'bg-[#33302a] text-[#d4af37] border-[#d4af37]/60 shadow-[0_0_8px_rgba(212,175,55,0.2)]'
+                : 'bg-[#24221e] hover:bg-[#33302a] text-[#f4f2ec] border-[#33302a]/60'
+            }`}
           >
-            <Download className="w-3 h-3" />
-            ZIP Export
+            <span>Export</span>
+            <ChevronUp className={`w-3 h-3 text-[#a8a49c] transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180 text-[#d4af37]' : ''}`} />
           </button>
-          <button
-            onClick={onExportPdf}
-            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-primary)]/80 text-black font-semibold text-[11px] hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <Download className="w-3 h-3" />
-            PDF Export
-          </button>
+
+          {isExportMenuOpen && (
+            <div className="absolute bottom-full mb-2 right-0 w-52 bg-[#181714] border border-[#38352d] rounded-xl shadow-2xl overflow-hidden z-50 p-1 space-y-0.5">
+              <div className="px-2.5 py-1.5 border-b border-[#24221e] text-[10px] font-semibold text-[#8c887e] uppercase tracking-wider flex items-center justify-between">
+                <span>Export Project</span>
+                <Download className="w-3 h-3 text-[#d4af37]" />
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsExportMenuOpen(false);
+                  onExportPdf();
+                }}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#24221e] text-xs text-[#f4f2ec] transition-colors rounded-lg group"
+              >
+                <div className="p-1 rounded bg-[#24221e] group-hover:bg-[#2e2c26] text-[#d4af37]">
+                  <FileText className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-semibold text-[11px] text-[#f4f2ec] group-hover:text-[#d4af37]">Export as PDF</div>
+                  <div className="text-[10px] text-[#78746c]">Compiled document (.pdf)</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsExportMenuOpen(false);
+                  onExportZip();
+                }}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#24221e] text-xs text-[#f4f2ec] transition-colors rounded-lg group"
+              >
+                <div className="p-1 rounded bg-[#24221e] group-hover:bg-[#2e2c26] text-blue-400">
+                  <Archive className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="font-semibold text-[11px] text-[#f4f2ec] group-hover:text-blue-400">Export as ZIP</div>
+                  <div className="text-[10px] text-[#78746c]">Full project archive (.zip)</div>
+                </div>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </aside>

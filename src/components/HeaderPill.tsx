@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import {
-  ZoomIn,
-  ZoomOut,
   RotateCw,
   Bold,
   Italic,
   Underline,
-  Code,
   ChevronDown,
   Palette,
-  BookOpen,
-  Calendar,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
 
@@ -18,6 +16,7 @@ interface HeaderPillProps {
   compileStatus: CompileStatus;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  onFitWidth: () => void;
   onCompile: () => void;
   fontFamily: FontFamily;
   onFontFamilyChange: (font: FontFamily) => void;
@@ -35,12 +34,15 @@ interface HeaderPillProps {
   onThemeChange: (theme: ThemeName) => void;
   mode: WorkspaceMode;
   onModeChange: (mode: WorkspaceMode) => void;
+  activeFileName?: string;
+  projectName?: string;
 }
 
 export const HeaderPill: React.FC<HeaderPillProps> = ({
   compileStatus,
   zoom,
   onZoomChange,
+  onFitWidth,
   onCompile,
   fontFamily,
   onFontFamilyChange,
@@ -52,17 +54,25 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onToggleItalic,
   isUnderline,
   onToggleUnderline,
-  isCode,
-  onToggleCode,
   theme,
   onThemeChange,
   mode,
   onModeChange,
+  activeFileName = 'Methodology.tex',
+  projectName = 'My Research',
 }) => {
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
 
-  const fonts: FontFamily[] = ['Computer Modern', 'Serif', 'Inter', 'Garamond', 'Geist Mono'];
+  const academicFonts: { name: FontFamily; label: string; previewClass: string }[] = [
+    { name: 'EB Garamond', label: 'EB Garamond (Classic Academic)', previewClass: 'font-serif' },
+    { name: 'Computer Modern', label: 'Computer Modern (Standard LaTeX)', previewClass: 'font-serif' },
+    { name: 'Source Serif 4', label: 'Source Serif 4 (Modern Journal)', previewClass: 'font-serif' },
+    { name: 'Lora', label: 'Lora (Contemporary Book)', previewClass: 'font-serif' },
+    { name: 'Merriweather', label: 'Merriweather (High Legibility)', previewClass: 'font-serif' },
+    { name: 'Geist Mono', label: 'Geist Mono (Code / Technical)', previewClass: 'font-mono' },
+  ];
+
   const themes: { name: ThemeName; label: string; dotColor: string }[] = [
     { name: 'dark-gold', label: 'Dark Gold', dotColor: '#d4af37' },
     { name: 'neon-green', label: 'Neon Green', dotColor: '#00ff88' },
@@ -71,176 +81,147 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   ];
 
   return (
-    <header className="h-14 border-b border-[var(--border-color-subtle)] bg-[var(--bg-primary)] px-4 flex items-center justify-between select-none relative z-30">
-      {/* Left branding & Mode Toggle */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-[var(--accent-primary)] to-[var(--accent-primary)]/40 flex items-center justify-center font-bold text-black text-xs">
-            LT
-          </div>
-          <span className="font-semibold text-sm tracking-wide text-[var(--text-primary)]">LocTex</span>
-        </div>
-
-        <div className="h-4 w-px bg-[var(--border-color-subtle)] mx-1" />
-
-        {/* Mode Switcher */}
-        <div className="flex bg-[var(--bg-surface)] p-0.5 rounded-lg border border-[var(--border-color-subtle)] text-xs">
-          <button
-            onClick={() => onModeChange('research-studio')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${
-              mode === 'research-studio'
-                ? 'bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] font-medium shadow-sm'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            Research Studio
-          </button>
-          <button
-            onClick={() => onModeChange('daily-journal')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${
-              mode === 'daily-journal'
-                ? 'bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] font-medium shadow-sm'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            Daily Journal
-          </button>
+    <header className="h-10 bg-[#141311] border-b border-[#24221e] px-3 flex items-center justify-between select-none relative z-30 font-sans">
+      {/* Window Controls */}
+      <div className="flex items-center gap-3 w-1/4">
+        <div className="flex items-center gap-1.5 pl-1">
+          <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
+          <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
+          <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm" />
         </div>
       </div>
 
-      {/* Floating Center Pill (Compile Status, Zoom, Typography) */}
-      <div className="flex items-center bg-[var(--bg-surface)]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[var(--border-color)] shadow-lg shadow-black/20 gap-3.5 text-xs text-[var(--text-secondary)]">
-        {/* Compile Status */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`w-2 h-2 rounded-full transition-colors ${
-                compileStatus === 'ready'
-                  ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-                  : compileStatus === 'compiling'
-                  ? 'bg-amber-400 animate-ping'
-                  : compileStatus === 'error'
-                  ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                  : 'bg-zinc-500'
-              }`}
-            />
-            <span className="font-medium capitalize text-[var(--text-primary)]">
-              {compileStatus === 'compiling' ? 'Compiling...' : compileStatus}
+      {/* Floating Center Pill */}
+      <div className="flex items-center justify-center">
+        <div className="flex items-center bg-[#1e1d1a]/95 backdrop-blur-md px-3.5 py-1 rounded-full border border-[#33302a] shadow-2xl text-[11px] text-[#a8a49c] gap-2.5">
+          {/* Compile Status & Trigger */}
+          <div className="flex items-center gap-1.5 font-mono text-[10px]">
+            <span className="text-[#8c887e]">[LocTex • v1.4</span>
+            <span className="text-[#4a4740]">|</span>
+            <span className="text-[#c7c3b8]">Status:</span>
+            <span className="text-[#f4f2ec] font-semibold flex items-center gap-1">
+              {compileStatus === 'compiling' ? 'Compiling...' : 'Ready'}
+              <span
+                className={`w-2 h-2 rounded-full inline-block ${
+                  compileStatus === 'compiling'
+                    ? 'bg-amber-400 animate-ping'
+                    : compileStatus === 'error'
+                    ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]'
+                    : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+                }`}
+              />
             </span>
+            <button
+              onClick={onCompile}
+              className="p-0.5 hover:text-[#d4af37] text-[#8c887e] transition-colors"
+              title="Compile (Ctrl+S / Cmd+S)"
+            >
+              <RotateCw className={`w-3 h-3 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
+            </button>
+            <span className="text-[#8c887e]">]</span>
           </div>
 
-          <button
-            onClick={onCompile}
-            disabled={compileStatus === 'compiling'}
-            title="Compile Document (Ctrl+S / Cmd+S)"
-            className="p-1 rounded-full hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-colors"
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+          <span className="text-[#4a4740]">•</span>
 
-        <div className="h-3.5 w-px bg-[var(--border-color-subtle)]" />
+          {/* Zoom Controls & Fit Width */}
+          <div className="flex items-center gap-1 font-mono text-[10px]">
+            <button
+              onClick={() => onZoomChange(Math.max(40, zoom - 10))}
+              className="p-0.5 hover:text-[#f4f2ec] text-[#8c887e]"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3 h-3" />
+            </button>
+            <span className="text-[#f4f2ec] font-semibold w-8 text-center">{zoom}%</span>
+            <button
+              onClick={() => onZoomChange(Math.min(200, zoom + 10))}
+              className="p-0.5 hover:text-[#f4f2ec] text-[#8c887e]"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3 h-3" />
+            </button>
+            <button
+              onClick={onFitWidth}
+              className="ml-1 px-1.5 py-0.5 rounded bg-[#2a2824] hover:bg-[#383530] text-[9px] text-[#f4f2ec] border border-[#3d3a33] flex items-center gap-1"
+              title="Fit to Width"
+            >
+              <Maximize2 className="w-2.5 h-2.5" />
+              Fit
+            </button>
+          </div>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => onZoomChange(Math.max(50, zoom - 10))}
-            className="p-1 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-          <span className="w-9 text-center font-mono text-[11px] text-[var(--text-primary)]">{zoom}%</span>
-          <button
-            onClick={() => onZoomChange(Math.min(200, zoom + 10))}
-            className="p-1 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-        </div>
+          <span className="text-[#4a4740]">•</span>
 
-        <div className="h-3.5 w-px bg-[var(--border-color-subtle)]" />
-
-        {/* Typography Formatting Controls */}
-        <div className="flex items-center gap-2">
-          {/* Font Family Dropdown */}
+          {/* Academic Typography: Font Dropdown */}
           <div className="relative">
             <button
               onClick={() => setFontMenuOpen(!fontMenuOpen)}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--bg-surface-hover)] text-[var(--text-primary)] hover:border-[var(--border-color)] border border-transparent transition-all"
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#2a2824] hover:bg-[#383530] text-[#f4f2ec] border border-[#3d3a33] transition-colors"
             >
               <span>{fontFamily}</span>
-              <ChevronDown className="w-3 h-3 text-[var(--text-muted)]" />
+              <ChevronDown className="w-2.5 h-2.5 text-[#8c887e]" />
             </button>
 
             {fontMenuOpen && (
-              <div className="absolute top-full mt-1.5 left-0 w-36 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-xl py-1 z-50">
-                {fonts.map((f) => (
+              <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#1e1d1a] border border-[#3d3a33] rounded-lg shadow-2xl py-1 z-50">
+                <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-[#8c887e] font-semibold">
+                  Academic Fonts
+                </div>
+                {academicFonts.map((f) => (
                   <button
-                    key={f}
+                    key={f.name}
                     onClick={() => {
-                      onFontFamilyChange(f);
+                      onFontFamilyChange(f.name);
                       setFontMenuOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-xs flex items-center justify-between ${
-                      fontFamily === f ? 'text-[var(--accent-primary)] font-medium' : 'text-[var(--text-primary)]'
+                    className={`w-full text-left px-3 py-1.5 hover:bg-[#2a2824] text-[11px] flex items-center justify-between ${
+                      fontFamily === f.name ? 'text-[#d4af37] font-semibold' : 'text-[#f4f2ec]'
                     }`}
                   >
-                    {f}
+                    <span className={f.previewClass}>{f.name}</span>
+                    {fontFamily === f.name && <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Style Buttons (Bold, Italic, Underline, Code) */}
-          <div className="flex items-center bg-[var(--bg-surface-hover)] rounded p-0.5 border border-[var(--border-color-subtle)]">
+          {/* Style Buttons: B, I, U */}
+          <div className="flex items-center bg-[#2a2824] rounded border border-[#3d3a33] overflow-hidden">
             <button
               onClick={onToggleBold}
-              className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-                isBold ? 'bg-[var(--accent-primary)] text-black font-bold' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              className={`px-1.5 py-0.5 font-serif font-bold text-[11px] transition-colors ${
+                isBold ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
               }`}
-              title="Bold"
+              title="Bold (\textbf)"
             >
-              <Bold className="w-3 h-3" />
+              B
             </button>
             <button
               onClick={onToggleItalic}
-              className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-                isItalic ? 'bg-[var(--accent-primary)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              className={`px-1.5 py-0.5 font-serif italic text-[11px] border-l border-[#3d3a33] transition-colors ${
+                isItalic ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
               }`}
-              title="Italic"
+              title="Italic (\textit)"
             >
-              <Italic className="w-3 h-3" />
+              I
             </button>
             <button
               onClick={onToggleUnderline}
-              className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-                isUnderline ? 'bg-[var(--accent-primary)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              className={`px-1.5 py-0.5 font-serif underline text-[11px] border-l border-[#3d3a33] transition-colors ${
+                isUnderline ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
               }`}
-              title="Underline"
+              title="Underline (\underline)"
             >
-              <Underline className="w-3 h-3" />
-            </button>
-            <button
-              onClick={onToggleCode}
-              className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-                isCode ? 'bg-[var(--accent-primary)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-              }`}
-              title="Monospace Code"
-            >
-              <Code className="w-3 h-3" />
+              U
             </button>
           </div>
 
-          {/* Font Size */}
+          {/* Font Size Selector */}
           <select
             value={fontSize}
             onChange={(e) => onFontSizeChange(e.target.value)}
-            className="bg-[var(--bg-surface-hover)] text-[var(--text-primary)] rounded px-1.5 py-0.5 text-xs border border-[var(--border-color-subtle)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
+            className="bg-[#2a2824] text-[#f4f2ec] rounded px-1.5 py-0.5 text-[10px] font-mono border border-[#3d3a33] focus:outline-none cursor-pointer"
           >
             <option value="10pt">10pt</option>
             <option value="11pt">11pt</option>
@@ -249,24 +230,27 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
         </div>
       </div>
 
-      {/* Right Actions: Theme Selector & User Settings */}
-      <div className="flex items-center gap-3">
-        {/* Theme Picker */}
+      {/* Right Title & Theme Switcher */}
+      <div className="flex items-center justify-end gap-2.5 w-1/4">
+        <span className="text-[11px] text-[#78746c] truncate">
+          LocTex - {activeFileName} ({projectName})
+        </span>
+
+        {/* Theme Dot */}
         <div className="relative">
           <button
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-            className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-color-subtle)] text-xs text-[var(--text-secondary)] transition-colors"
+            className="p-1 rounded-full hover:bg-[#24221e] transition-colors"
+            title="Switch Theme"
           >
             <span
-              className="w-2.5 h-2.5 rounded-full"
+              className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
               style={{ backgroundColor: themes.find((t) => t.name === theme)?.dotColor }}
             />
-            <span className="capitalize">{theme.replace('-', ' ')}</span>
-            <Palette className="w-3.5 h-3.5 text-[var(--text-muted)]" />
           </button>
 
           {themeMenuOpen && (
-            <div className="absolute top-full mt-1.5 right-0 w-44 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-xl py-1 z-50">
+            <div className="absolute top-full mt-1 right-0 w-36 bg-[#1e1d1a] border border-[#3d3a33] rounded-lg shadow-2xl py-1 z-50">
               {themes.map((t) => (
                 <button
                   key={t.name}
@@ -274,11 +258,11 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
                     onThemeChange(t.name);
                     setThemeMenuOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-xs flex items-center gap-2 ${
-                    theme === t.name ? 'text-[var(--accent-primary)] font-medium' : 'text-[var(--text-primary)]'
+                  className={`w-full text-left px-3 py-1 hover:bg-[#2a2824] text-[11px] flex items-center gap-2 ${
+                    theme === t.name ? 'text-[#d4af37] font-semibold' : 'text-[#f4f2ec]'
                   }`}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.dotColor }} />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.dotColor }} />
                   {t.label}
                 </button>
               ))}

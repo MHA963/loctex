@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync, execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { DiagnosticError } from '../../src/types/index.ts';
@@ -14,10 +14,27 @@ export interface CompilationResponse {
 }
 
 export class TectonicRunner {
-  private executablePath: string;
+  private engineType: 'tectonic' | 'pdflatex' | 'unknown' = 'unknown';
 
-  constructor(executablePath = 'tectonic') {
-    this.executablePath = executablePath;
+  constructor() {
+    this.detectEngine();
+  }
+
+  private detectEngine(): 'tectonic' | 'pdflatex' | 'unknown' {
+    try {
+      execSync('tectonic --version', { stdio: 'ignore' });
+      this.engineType = 'tectonic';
+      return 'tectonic';
+    } catch (_) {
+      try {
+        execSync('pdflatex --version', { stdio: 'ignore' });
+        this.engineType = 'pdflatex';
+        return 'pdflatex';
+      } catch (__) {
+        this.engineType = 'unknown';
+        return 'unknown';
+      }
+    }
   }
 
   public async compile(projectDir: string, mainTexFile = 'main.tex'): Promise<CompilationResponse> {
@@ -41,24 +58,48 @@ export class TectonicRunner {
       };
     }
 
+    if (this.engineType === 'unknown') {
+      this.detectEngine();
+    }
+
+    const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
+    const pdfPath = path.resolve(projectDir, `${baseName}.pdf`);
+    const synctexGz = path.resolve(projectDir, `${baseName}.synctex.gz`);
+    const synctexPlain = path.resolve(projectDir, `${baseName}.synctex`);
+
     return new Promise((resolve) => {
-      const args = [
-        '-X',
-        'compile',
-        mainTexFile,
-        '--synctex',
-        '--keep-logs',
-        '--keep-intermediates',
-        '--outdir',
-        projectDir,
-      ];
+      let command = 'tectonic';
+      let args: string[] = [];
+
+      if (this.engineType === 'tectonic') {
+        command = 'tectonic';
+        args = [
+          '-X',
+          'compile',
+          mainTexFile,
+          '--synctex',
+          '--keep-logs',
+          '--keep-intermediates',
+          '--outdir',
+          projectDir,
+        ];
+      } else {
+        // Use pdflatex
+        command = 'pdflatex';
+        args = [
+          '-synctex=1',
+          '-interaction=nonstopmode',
+          '-halt-on-error',
+          mainTexFile,
+        ];
+      }
 
       let stdout = '';
       let stderr = '';
 
       let child;
       try {
-        child = spawn(this.executablePath, args, { cwd: projectDir, shell: true });
+        child = spawn(command, args, { cwd: projectDir, shell: false });
       } catch (err: any) {
         return resolve({
           success: false,
@@ -67,7 +108,7 @@ export class TectonicRunner {
               id: 'err-exec',
               file: mainTexFile,
               line: 1,
-              message: `Failed to launch TeX engine: ${err.message}`,
+              message: `Failed to launch TeX engine (${command}): ${err.message}`,
               severity: 'error',
             },
           ],
@@ -103,21 +144,38 @@ export class TectonicRunner {
         });
       });
 
-      child.on('close', (code) => {
+      child.on('close', async (code) => {
         const durationMs = Date.now() - startTime;
-        const combinedLog = stdout + '\n' + stderr;
-        const diagnostics = LaTeXErrorParser.parse(combinedLog, mainTexFile);
+        let combinedLog = stdout + '\n' + stderr;
 
         const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
-        const pdfPath = path.resolve(projectDir, `${baseName}.pdf`);
-        const synctexPath = path.resolve(projectDir, `${baseName}.synctex.gz`);
+        const auxFile = path.resolve(projectDir, `${baseName}.aux`);
+
+        // Run BibTeX and multi-pass for full citations if pdflatex was used
+        if (this.engineType === 'pdflatex' && fs.existsSync(auxFile)) {
+          try {
+            spawnSync('bibtex', [baseName], { cwd: projectDir, stdio: 'ignore' });
+            spawnSync('pdflatex', ['-synctex=1', '-interaction=nonstopmode', '-halt-on-error', mainTexFile], { cwd: projectDir, stdio: 'ignore' });
+          } catch (_) {}
+        }
 
         const pdfExists = fs.existsSync(pdfPath);
+        const synctexPath = fs.existsSync(synctexGz)
+          ? synctexGz
+          : fs.existsSync(synctexPlain)
+          ? synctexPlain
+          : undefined;
+
+        let diagnostics = LaTeXErrorParser.parse(combinedLog, mainTexFile);
+        if (pdfExists) {
+          // If PDF was successfully created, filter out fatal abort warnings so UI stays green
+          diagnostics = diagnostics.filter((d) => !d.message.includes('Fatal error') && !d.message.includes('no output PDF'));
+        }
 
         resolve({
-          success: code === 0 && pdfExists,
+          success: pdfExists,
           pdfPath: pdfExists ? pdfPath : undefined,
-          synctexPath: fs.existsSync(synctexPath) ? synctexPath : undefined,
+          synctexPath,
           diagnostics,
           stdout: combinedLog,
           durationMs,

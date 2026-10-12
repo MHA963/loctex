@@ -8,7 +8,7 @@ import { TectonicRunner } from './compiler/tectonic-runner.ts';
 import { ZipService } from './services/zip-service.ts';
 import { SyncTeXParser } from './services/synctex-parser.ts';
 
-const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 }); // 50MB for zip uploads
+const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
 const db = new LocTexDatabase();
 const compiler = new TectonicRunner();
 
@@ -43,21 +43,168 @@ fastify.get('/api/projects/:id', async (request, reply) => {
 });
 
 fastify.post('/api/projects', async (request) => {
-  const body = request.body as { name: string };
+  const body = request.body as { name?: string; template?: string };
   const id = `proj-${Date.now()}`;
   const name = body.name || 'Untitled Document';
+  const template = body.template || 'article';
   const projectDir = path.resolve(PROJECTS_DIR, id);
 
   fs.mkdirSync(projectDir, { recursive: true });
 
-  const defaultMainTex = `\\documentclass[11pt]{article}
+  let mainTexContent = '';
+
+  if (template === 'ieeetran') {
+    mainTexContent = `\\documentclass[journal]{IEEEtran}
+\\usepackage{amsmath,amssymb,amsfonts}
+\\usepackage{algorithmic}
+\\usepackage{graphicx}
+\\usepackage{textcomp}
+\\usepackage{cite}
+\\usepackage{url}
+
+\\begin{document}
+
+\\title{${name}}
+
+\\author{LocTex~Researcher,~\IEEEmembership{Member,~IEEE}
+\\thanks{Manuscript created in LocTex, the offline-first personal LaTeX research studio.}}
+
+\\markboth{IEEE Transactions on Research,~Vol.~1, No.~1, \\today}%
+{LocTex Researcher: ${name}}
+
+\\maketitle
+
+\\begin{abstract}
+This research document demonstrates the IEEEtran journal format compiled locally with LocTex. It features two-column typesetting, mathematical formulations, and vector graphics support.
+\\end{abstract}
+
+\\begin{IEEEkeywords}
+LaTeX, IEEEtran, Offline Compilation, Scientific Publishing, LocTex.
+\\end{IEEEkeywords}
+
+\\section{Introduction}
+\\IEEEPARstart{W}{elcome} to your new IEEEtran paper. With LocTex, you have zero cloud latency, instant source synchronization, and complete offline privacy.
+
+\\begin{equation}
+\\label{eq:sample_ieee}
+\\mathcal{L}(\\theta) = \\frac{1}{N} \\sum_{i=1}^N \\| y_i - f(x_i; \\theta) \\|_2^2 + \\lambda \\| \\theta \\|_2^2
+\\end{equation}
+
+\\section{Methodology}
+As formulated in Equation~\\eqref{eq:sample_ieee}, we evaluate the objective across benchmark datasets.
+
+\\section{Conclusion}
+This IEEEtran starter is ready for your journal or conference submission.
+
+\\end{document}
+`;
+  } else if (template === 'beamer') {
+    mainTexContent = `\\documentclass{beamer}
+\\usetheme{Madrid}
+\\usecolortheme{beaver}
+
+\\title[${name}]{${name}}
+\\subtitle{Research Presentation Deck}
+\\author{LocTex Researcher}
+\\institute{Academic Research Lab}
+\\date{\\today}
+
+\\begin{document}
+
+\\begin{frame}
+  \\titlepage
+\\end{frame}
+
+\\begin{frame}{Outline}
+  \\tableofcontents
+\\end{frame}
+
+\\section{Introduction}
+\\begin{frame}{Problem Formulation}
+  \\begin{itemize}
+    \\item Cloud-based LaTeX tools require internet connection and monthly subscriptions.
+    \\item LocTex provides a zero-latency, local-first compiling engine.
+    \\item Native vector PDF rendering with synchronized source tracking.
+  \\end{itemize}
+\\end{frame}
+
+\\section{Core Results}
+\\begin{frame}{Key Mathematical Findings}
+  \\begin{block}{Theorem 1 (Linear Convergence)}
+    For learning rate $\\eta \\in (0, 2/\\lambda_{\\max})$, the error decays exponentially:
+    \\[
+      \\| \\theta_{t} - \\theta^* \\| \\le (1 - \\eta \\mu)^t \\| \\theta_0 - \\theta^* \\|
+    \\]
+  \\end{block}
+\\end{frame}
+
+\\section{Summary}
+\\begin{frame}{Conclusion \\& Next Steps}
+  \\begin{enumerate}
+    \\item Rapid offline authoring and instant compilation.
+    \\item Full TeX Live and Tectonic capability directly on your machine.
+  \\end{enumerate}
+\\end{frame}
+
+\\end{document}
+`;
+  } else if (template === 'cv') {
+    mainTexContent = `\\documentclass[11pt,a4paper]{article}
+\\usepackage[margin=0.8in]{geometry}
+\\usepackage{titlesec}
+\\usepackage{enumitem}
+\\usepackage{hyperref}
+
+\\pagestyle{empty}
+\\titlespacing{\\section}{0pt}{10pt}{4pt}
+\\titleformat{\\section}{\\large\\bfseries\\uppercase}{}{0em}{}[\\titlerule]
+
+\\begin{document}
+
+\\begin{center}
+  {\\Huge \\textbf{Alex Morgan, Ph.D.}}\\\\[4pt]
+  \\small researcher@university.edu \\quad | \\quad +1 (555) 019-2834 \\quad | \\quad github.com/alexmorgan
+\\end{center}
+
+\\section{Education}
+\\textbf{Ph.D. in Computer Science} \\hfill 2021 -- 2025\\\\
+\\textit{Aarhus University, Denmark} \\\\
+Specialization: Machine Learning Systems and Compiler Optimizations.
+
+\\vspace{4pt}
+\\textbf{B.S. in Software Engineering} \\hfill 2017 -- 2021\\\\
+\\textit{University of Copenhagen} -- First Class Honours.
+
+\\section{Experience}
+\\textbf{Lead Research Engineer} \\hfill 2025 -- Present\\\\
+\\textit{LocTex Research Lab}
+\\begin{itemize}[noitemsep,topsep=0pt]
+  \\item Architected offline-first LaTeX compiler pipeline with sub-second feedback loops.
+  \\item Implemented vector PDF text layer synchronization and bidirectional source jumping.
+\\end{itemize}
+
+\\section{Selected Publications}
+\\begin{itemize}[noitemsep,topsep=0pt]
+  \\item A. Morgan et al., \`\`Ultra-High-Gradient Quantization for Mobile Edge Detection,'' \\textit{IEEE Trans. Neural Netw.}, 2026.
+\\end{itemize}
+
+\\section{Technical Skills}
+\\textbf{Languages \\& Frameworks:} Python, PyTorch, C++, TypeScript, Rust, LaTeX, Fastify, React.
+
+\\end{document}
+`;
+  } else {
+    // Standard Academic Article
+    mainTexContent = `\\documentclass[11pt]{article}
 \\usepackage{amsmath,amssymb}
 \\usepackage{graphicx}
 \\usepackage{geometry}
+\\usepackage{cite}
+\\usepackage{hyperref}
 \\geometry{margin=1in}
 
 \\title{${name}}
-\\author{LocTex Author}
+\\author{LocTex Researcher}
 \\date{\\today}
 
 \\begin{document}
@@ -65,11 +212,11 @@ fastify.post('/api/projects', async (request) => {
 \\maketitle
 
 \\begin{abstract}
-This document was created in LocTex, the personal research and journaling workspace.
+This document was created in LocTex, the personal offline-first research and journaling workspace.
 \\end{abstract}
 
 \\section{Introduction}
-Welcome to your new document. You can edit text directly on the compiled view or in the code editor.
+Welcome to your new document. You can edit text directly on the compiled view or in the code editor with live synchronized jumping.
 
 \\begin{equation}
 \\label{eq:main}
@@ -77,12 +224,28 @@ Welcome to your new document. You can edit text directly on the compiled view or
 \\end{equation}
 
 \\section{Methodology}
-Write your research equations and notes here.
+Write your research equations, theorems, and notes here. As illustrated in Equation~\\eqref{eq:main}, Gaussian integration forms the basis of diffusion models.
+
+\\section{Conclusion}
+LocTex provides a distraction-free, reliable LaTeX environment.
 
 \\end{document}
 `;
+  }
 
-  fs.writeFileSync(path.resolve(projectDir, 'main.tex'), defaultMainTex, 'utf-8');
+  fs.writeFileSync(path.resolve(projectDir, 'main.tex'), mainTexContent, 'utf-8');
+
+  // Provide a starter references.bib
+  const defaultBib = `@article{loctex2026,
+  author    = {LocTex Authors},
+  title     = {Offline-First LaTeX Studio and Journaling Workspace},
+  journal   = {Journal of Reproducible Research},
+  year      = {2026},
+  volume    = {1},
+  pages     = {1--10}
+}
+`;
+  fs.writeFileSync(path.resolve(projectDir, 'references.bib'), defaultBib, 'utf-8');
 
   await db.createProject({
     id,
@@ -92,7 +255,14 @@ Write your research equations and notes here.
     settings_json: JSON.stringify({ theme: 'dark-gold', fontFamily: 'Serif', fontSize: '11pt' }),
   });
 
-  return { id, name, root_path: projectDir };
+  // Auto-compile starter template immediately so PDF is available
+  try {
+    await compiler.compile(projectDir, 'main.tex');
+  } catch (err) {
+    console.warn('Initial project compile warning:', err);
+  }
+
+  return { id, name, root_path: projectDir, active_file: 'main.tex' };
 });
 
 fastify.patch('/api/projects/:id', async (request) => {
@@ -130,7 +300,7 @@ fastify.post('/api/projects/import-zip', async (request) => {
     settings_json: JSON.stringify({ theme: 'dark-gold', fontFamily: 'Serif', fontSize: '11pt' }),
   });
 
-  return { id, name, root_path: projectDir, mainFile };
+  return { id, name, root_path: projectDir, active_file: mainFile };
 });
 
 fastify.get('/api/projects/:id/export-zip', async (request, reply) => {
@@ -155,7 +325,6 @@ fastify.get('/api/projects/:id/export-pdf', async (request, reply) => {
   const pdfPath = path.resolve(project.root_path, `${baseName}.pdf`);
 
   if (!fs.existsSync(pdfPath)) {
-    // Attempt automatic compile
     await compiler.compile(project.root_path, project.active_file);
   }
 
@@ -169,16 +338,38 @@ fastify.get('/api/projects/:id/export-pdf', async (request, reply) => {
   return reply.send(pdfData);
 });
 
-// --- Project Files API ---
-fastify.get('/api/projects/:id/files', async (request, reply) => {
+fastify.get('/api/projects/:id/pdf', async (request, reply) => {
   const { id } = request.params as { id: string };
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
+  const baseName = path.basename(project.active_file, path.extname(project.active_file));
+  const pdfPath = path.resolve(project.root_path, `${baseName}.pdf`);
+
+  if (!fs.existsSync(pdfPath)) {
+    await compiler.compile(project.root_path, project.active_file);
+  }
+
+  if (fs.existsSync(pdfPath)) {
+    const pdfData = fs.readFileSync(pdfPath);
+    reply.header('Content-Type', 'application/pdf');
+    reply.header('Cache-Control', 'no-cache');
+    return reply.send(pdfData);
+  }
+
+  return reply.status(404).send({ error: 'PDF not generated yet' });
+});
+
+// --- Project Files CRUD API ---
+fastify.get('/api/projects/:id/files', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project || !fs.existsSync(project.root_path)) return reply.status(404).send({ error: 'Project not found' });
+
   const getTree = (dir: string, base: string): any[] => {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     return entries
-      .filter((e) => !e.name.startsWith('.') && !e.name.endsWith('.synctex.gz') && !e.name.endsWith('.aux'))
+      .filter((e) => !e.name.startsWith('.') && !e.name.endsWith('.synctex.gz') && !e.name.endsWith('.aux') && !e.name.endsWith('.fls') && !e.name.endsWith('.fdb_latexmk'))
       .map((entry) => {
         const full = path.resolve(dir, entry.name);
         const rel = path.relative(base, full).replace(/\\/g, '/');
@@ -199,7 +390,12 @@ fastify.get('/api/projects/:id/file', async (request, reply) => {
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const fullPath = path.resolve(project.root_path, relPath);
+  const root = path.resolve(project.root_path);
+  const fullPath = path.resolve(root, relPath || project.active_file);
+  if (!fullPath.startsWith(root)) {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
   if (!fs.existsSync(fullPath)) {
     return reply.status(404).send({ error: 'File not found' });
   }
@@ -214,47 +410,82 @@ fastify.post('/api/projects/:id/file', async (request, reply) => {
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const fullPath = path.resolve(project.root_path, body.path);
+  const root = path.resolve(project.root_path);
+  const fullPath = path.resolve(root, body.path);
+  if (!fullPath.startsWith(root)) {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
+  // Guard against overwriting binary files (images, pdfs) with UTF-8 strings
+  const ext = path.extname(body.path).toLowerCase();
+  const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.zip', '.gz', '.ico', '.svgz'];
+  if (binaryExtensions.includes(ext)) {
+    return { success: true, isBinary: true, skipped: true };
+  }
+
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
   fs.writeFileSync(fullPath, body.content, 'utf-8');
 
   return { success: true };
 });
 
-// --- Snapshots API ---
-fastify.get('/api/projects/:id/snapshots', async (request) => {
+fastify.post('/api/projects/:id/file/create', async (request, reply) => {
   const { id } = request.params as { id: string };
-  const snapshots = await db.listSnapshots(id);
-  return { snapshots };
+  const body = request.body as { path: string; isDirectory?: boolean; initialContent?: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+
+  const root = path.resolve(project.root_path);
+  const fullPath = path.resolve(root, body.path);
+  if (!fullPath.startsWith(root)) {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
+  if (body.isDirectory) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  } else {
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, body.initialContent || '% New LaTeX file\n', 'utf-8');
+  }
+
+  return { success: true, path: body.path };
 });
 
-fastify.post('/api/projects/:id/snapshots', async (request) => {
+fastify.delete('/api/projects/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
-  const body = request.body as { version_tag: string; summary: string };
+  const { path: relPath } = request.query as { path: string };
   const project = await db.getProject(id);
-  if (!project) throw new Error('Project not found');
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const files = fs.readdirSync(project.root_path);
-  const snapId = `snap-${Date.now()}`;
+  const root = path.resolve(project.root_path);
+  const fullPath = path.resolve(root, relPath);
+  if (!fullPath.startsWith(root)) {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
 
-  await db.createSnapshot({
-    id: snapId,
-    project_id: id,
-    version_tag: body.version_tag || `v${Date.now()}`,
-    summary: body.summary || 'Snapshot save',
-    file_tree_json: JSON.stringify(files),
-  });
+  if (fs.existsSync(fullPath)) {
+    fs.rmSync(fullPath, { recursive: true, force: true });
+  }
 
-  return { success: true, id: snapId };
+  return { success: true };
 });
 
 // --- Compilation & SyncTeX API ---
 fastify.post('/api/projects/:id/compile', async (request, reply) => {
   const { id } = request.params as { id: string };
+  const body = (request.body || {}) as { content?: string; activeFile?: string };
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const result = await compiler.compile(project.root_path, project.active_file);
+  const activeFile = body.activeFile || project.active_file || 'main.tex';
+
+  // If content was passed, save it first
+  if (body.content !== undefined) {
+    const fullPath = path.resolve(project.root_path, activeFile);
+    fs.writeFileSync(fullPath, body.content, 'utf-8');
+  }
+
+  const result = await compiler.compile(project.root_path, activeFile);
   return result;
 });
 

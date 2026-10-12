@@ -10,3 +10,12 @@ loctex_data
 *.pdf
 *.fls
 *.fdb_latexmk
+
+# Autonomous Agent Swarm & ASP System (Local only)
+.agents/
+.agents
+asp/
+*.agent.md
+HOW_TO_USE_IN_ANY_PROJECT.md
+ARCHITECTURE_DIAGRAMS.md
+

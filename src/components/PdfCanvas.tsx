@@ -1,286 +1,383 @@
-import React, { useState } from 'react';
-import { SyncTeXBox } from '../types/index.ts';
-import { GripVertical, Move, Check, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { RotateCcw, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { CompileStatus, FontFamily, SyncTeXBox } from '../types/index.ts';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+export interface PdfCanvasRef {
+  calculateFitWidth: () => number;
+}
+
+interface TextItemInfo {
+  str: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 interface PdfCanvasProps {
+  projectId: string | null;
+  pdfVersion: number;
   zoom: number;
-  pdfUrl?: string | null;
-  synctexBoxes: SyncTeXBox[];
-  onDirectEdit: (newText: string, targetLine: number) => void;
-  onBlockReorder: (sourceBlockId: string, targetBlockId: string) => void;
+  onZoomChange: (newZoom: number) => void;
+  compileStatus: CompileStatus;
+  onCompile?: () => void;
+  fontFamily?: FontFamily;
+  texContent?: string;
+  synctexBoxes?: SyncTeXBox[];
   onJumpToSource: (line: number) => void;
 }
 
-export const PdfCanvas: React.FC<PdfCanvasProps> = ({
-  zoom,
-  pdfUrl,
-  synctexBoxes,
-  onDirectEdit,
-  onBlockReorder,
-  onJumpToSource,
-}) => {
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [draggedBlock, setDraggedBlock] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
+  (
+    { projectId, pdfVersion, zoom, onZoomChange, compileStatus, onCompile, texContent = '', synctexBoxes = [], onJumpToSource },
+    ref
+  ) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [numPages, setNumPages] = useState<number>(0);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+    const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+    const renderTasks = useRef<Map<number, any>>(new Map());
+    const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+    const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number } | null>(null);
+    const [pageTextItems, setPageTextItems] = useState<Map<number, TextItemInfo[]>>(new Map());
 
-  // Dynamic editable sections
-  const [title, setTitle] = useState('A Novel Approach to LaTeX Workflows');
-  const [abstract, setAbstract] = useState(
-    'This paper presents LocTex, an autonomous personal research environment that merges instant local compilation, bidirectional visual PDF text manipulation, and frictionless daily journaling.'
-  );
-  const [introText, setIntroText] = useState(
-    'Modern academic authoring has historically suffered from cloud lag, multi-tenant bloat, and rigid split-pane barriers. By coupling the Tectonic incremental compiler with local SyncTeX coordinate mapping, users can directly manipulate their compiled documents visually.'
-  );
-  const [methodText, setMethodText] = useState(
-    'We define a deterministic bidirectional mapping between the compiled PostScript coordinate bounding boxes and the underlying LaTeX Abstract Syntax Tree tokens.'
-  );
-  const [resultsText, setResultsText] = useState(
-    'The primary results from this analysis (see Figure 2) demonstrate sub-300ms roundtrip updates with zero layout shift.'
-  );
+    // Expose calculateFitWidth to parent
+    useImperativeHandle(ref, () => ({
+      calculateFitWidth: () => {
+        if (!containerRef.current || !pageDimensions) return 100;
+        const availableWidth = containerRef.current.clientWidth - 48; // 24px padding each side
+        const calculatedZoom = Math.round((availableWidth / pageDimensions.width) * 100);
+        return Math.max(40, Math.min(250, calculatedZoom));
+      },
+    }));
 
-  const scale = zoom / 100;
-  const paperWidth = 612 * scale;
-  const paperHeight = 792 * scale;
+    // Fetch and load PDF document whenever projectId or pdfVersion changes
+    useEffect(() => {
+      if (!projectId) {
+        setIsLoading(false);
+        setPdfDoc(null);
+        return;
+      }
 
-  const handleSaveEdit = (key: string, line: number) => {
-    if (key === 'title') setTitle(editText);
-    if (key === 'abstract') setAbstract(editText);
-    if (key === 'intro') setIntroText(editText);
-    if (key === 'method') setMethodText(editText);
-    if (key === 'results') setResultsText(editText);
+      let isMounted = true;
+      setIsLoading(true);
+      setError(null);
 
-    onDirectEdit(editText, line);
-    setEditingKey(null);
-  };
+      const pdfUrl = `/api/projects/${projectId}/pdf?v=${pdfVersion}`;
 
-  return (
-    <div className="flex-1 h-full bg-[#11100e] overflow-auto flex items-start justify-center p-8 select-none relative">
-      {/* Paper Canvas */}
-      <div
-        style={{
-          width: `${paperWidth}px`,
-          minHeight: `${paperHeight}px`,
-          transformOrigin: 'top center',
-        }}
-        className="bg-[#fdfbf7] text-[#1c1917] shadow-2xl rounded-sm p-12 relative flex flex-col justify-between transition-all duration-150 font-serif"
-      >
-        {/* Paper Header */}
-        <div className="text-center space-y-3 mb-6">
-          <div className="relative group">
-            {editingKey === 'title' ? (
-              <input
-                type="text"
-                value={editText}
-                autoFocus
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={() => handleSaveEdit('title', 14)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSaveEdit('title', 14);
-                }}
-                className="bg-white border-2 border-amber-500 rounded px-2 py-1 text-center w-full text-2xl font-bold font-serif focus:outline-none shadow-md"
-              />
-            ) : (
-              <h1
-                onClick={() => {
-                  setEditingKey('title');
-                  setEditText(title);
-                  onJumpToSource(14);
-                }}
-                className="text-2xl font-bold tracking-tight text-[#1c1917] cursor-text hover:bg-amber-100/60 rounded px-1.5 py-0.5 transition-colors"
-                title="Click to edit title"
-              >
-                {title}
-              </h1>
-            )}
-          </div>
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+        cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
+        cMapPacked: true,
+      });
 
-          <div className="text-sm italic text-[#57534e]">Authors: LocTex Research Group</div>
-          <div className="text-xs text-[#78716c]">October 2026</div>
-        </div>
+      loadingTask.promise
+        .then(async (doc) => {
+          if (!isMounted) return;
+          setPdfDoc(doc);
+          setNumPages(doc.numPages);
+          setIsLoading(false);
 
-        {/* Abstract Box */}
-        <div className="my-3 px-6 text-center">
-          <div className="text-xs font-bold uppercase tracking-wider mb-1">Abstract</div>
-          {editingKey === 'abstract' ? (
-            <textarea
-              value={editText}
-              autoFocus
-              rows={3}
-              onChange={(e) => setEditText(e.target.value)}
-              onBlur={() => handleSaveEdit('abstract', 18)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) handleSaveEdit('abstract', 18);
-              }}
-              className="w-full bg-white border-2 border-amber-500 rounded p-2 text-xs leading-relaxed text-[#1c1917] font-serif focus:outline-none shadow-md"
-            />
-          ) : (
-            <p
-              onClick={() => {
-                setEditingKey('abstract');
-                setEditText(abstract);
-                onJumpToSource(18);
-              }}
-              className="text-xs leading-relaxed text-[#44403c] text-justify cursor-text hover:bg-amber-100/60 rounded p-1.5 transition-colors"
-              title="Click to edit abstract"
-            >
-              {abstract}
-            </p>
+          // Get dimensions of first page
+          try {
+            const firstPage = await doc.getPage(1);
+            const vp = firstPage.getViewport({ scale: 1 });
+            setPageDimensions({ width: vp.width, height: vp.height });
+          } catch (e) {
+            console.error('Failed to get page dimensions:', e);
+          }
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          console.warn('PDF load warning:', err.message);
+          setIsLoading(false);
+          setError('PDF not yet compiled or unavailable.');
+          setPdfDoc(null);
+          setNumPages(0);
+        });
+
+      return () => {
+        isMounted = false;
+        loadingTask.destroy();
+      };
+    }, [projectId, pdfVersion]);
+
+    // Render each page to canvas & extract text layer coordinates whenever pdfDoc or zoom changes
+    useEffect(() => {
+      if (!pdfDoc || numPages === 0) return;
+
+      const scale = zoom / 100;
+      const dpr = window.devicePixelRatio || 1;
+      const newTextItemsMap = new Map<number, TextItemInfo[]>();
+
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        const canvas = canvasRefs.current.get(pageNum);
+        if (!canvas) continue;
+
+        // Cancel previous render task for this page if running
+        if (renderTasks.current.has(pageNum)) {
+          try {
+            renderTasks.current.get(pageNum).cancel();
+          } catch (_) {}
+          renderTasks.current.delete(pageNum);
+        }
+
+        pdfDoc.getPage(pageNum).then(async (page) => {
+          const viewport = page.getViewport({ scale });
+          const ctx = canvas.getContext('2d', { alpha: false });
+          if (!ctx) return;
+
+          // HiDPI / Retina Crisp rendering
+          canvas.width = Math.floor(viewport.width * dpr);
+          canvas.height = Math.floor(viewport.height * dpr);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+          const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
+
+          const renderTask = page.render({
+            canvasContext: ctx,
+            viewport,
+            transform,
+          });
+
+          renderTasks.current.set(pageNum, renderTask);
+
+          renderTask.promise.catch((err) => {
+            if (err.name !== 'RenderingCancelledException') {
+              console.error(`Page ${pageNum} render error:`, err);
+            }
+          });
+
+          // Extract text content for click-to-code navigation
+          try {
+            const textContent = await page.getTextContent();
+            const items: TextItemInfo[] = [];
+
+            for (const item of textContent.items as any[]) {
+              if (!item.str || !item.str.trim()) continue;
+              const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+              items.push({
+                str: item.str,
+                left: tx[4],
+                top: tx[5] - (item.height * scale),
+                width: item.width * scale,
+                height: Math.max(item.height * scale, 12 * scale),
+              });
+            }
+            newTextItemsMap.set(pageNum, items);
+            setPageTextItems(new Map(newTextItemsMap));
+          } catch (e) {
+            console.error('Failed to extract text content:', e);
+          }
+        });
+      }
+    }, [pdfDoc, numPages, zoom]);
+
+    // Handle clicking text on PDF to jump to LaTeX source code
+    const handleTextClick = (textStr: string) => {
+      const cleanTarget = textStr.trim();
+      if (!cleanTarget || cleanTarget.length < 2 || !texContent) return;
+
+      const lines = texContent.split('\n');
+      let matchedLine = -1;
+
+      // 1. Exact substring match
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(cleanTarget)) {
+          matchedLine = i + 1;
+          break;
+        }
+      }
+
+      // 2. Word-based match if exact phrase not found (handles LaTeX commands stripped by PDF engine)
+      if (matchedLine === -1) {
+        const words = cleanTarget.split(/\s+/).filter((w) => w.length > 3);
+        if (words.length > 0) {
+          for (let i = 0; i < lines.length; i++) {
+            if (words.some((word) => lines[i].includes(word))) {
+              matchedLine = i + 1;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedLine > 0) {
+        onJumpToSource(matchedLine);
+      }
+    };
+
+    // Scroll tracking to update currentPage
+    const handleScroll = () => {
+      if (!containerRef.current || numPages <= 1) return;
+      const scrollTop = containerRef.current.scrollTop;
+      const containerHeight = containerRef.current.clientHeight;
+
+      for (let i = 1; i <= numPages; i++) {
+        const canvas = canvasRefs.current.get(i);
+        if (canvas) {
+          const top = canvas.offsetTop - containerRef.current.offsetTop;
+          const height = canvas.clientHeight;
+          if (scrollTop >= top - containerHeight / 2 && scrollTop < top + height - containerHeight / 2) {
+            setCurrentPage(i);
+            break;
+          }
+        }
+      }
+    };
+
+    const scrollToPage = (pageNum: number) => {
+      if (pageNum < 1 || pageNum > numPages) return;
+      const canvas = canvasRefs.current.get(pageNum);
+      if (canvas && containerRef.current) {
+        canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setCurrentPage(pageNum);
+      }
+    };
+
+    return (
+      <div className="flex-1 h-full bg-[#11100e] relative overflow-hidden flex flex-col">
+        {/* Scrollable PDF Pages Container */}
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-auto flex flex-col items-center py-6 px-4 gap-6 select-none"
+        >
+          {isLoading && (
+            <div className="flex-1 flex flex-col items-center justify-center text-[#8c887e] gap-3">
+              <RotateCw className="w-6 h-6 animate-spin text-[#d4af37]" />
+              <span className="text-xs font-mono">Rendering high-resolution vector PDF...</span>
+            </div>
+          )}
+
+          {!isLoading && error && (
+            <div className="flex-1 flex flex-col items-center justify-center text-[#8c887e] gap-3 p-6 text-center max-w-md">
+              <FileText className="w-10 h-10 text-[#57534e]" />
+              <div className="text-sm font-semibold text-[#f4f2ec]">PDF Preview Ready to Compile</div>
+              <p className="text-xs text-[#8c887e] leading-relaxed">
+                Save your changes or click compile to generate the high-resolution vector PDF preview.
+              </p>
+              {onCompile && (
+                <button
+                  onClick={onCompile}
+                  className="mt-2 px-3 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#c49f27] text-black font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-amber-900/20 cursor-pointer"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  Compile Document
+                </button>
+              )}
+            </div>
+          )}
+
+          {!isLoading && !error && pdfDoc && (
+            <>
+              {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => {
+                const textItems = pageTextItems.get(pageNum) || [];
+                return (
+                  <div
+                    key={pageNum}
+                    className="relative group bg-[#fdfbf7] shadow-2xl rounded-sm transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+                  >
+                    <canvas
+                      ref={(el) => {
+                        if (el) canvasRefs.current.set(pageNum, el);
+                        else canvasRefs.current.delete(pageNum);
+                      }}
+                      className="block rounded-sm bg-white"
+                    />
+
+                    {/* Clickable Interactive Text Overlay (Click on text to jump to code) */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {textItems.map((item, idx) => (
+                        <span
+                          key={idx}
+                          onClick={() => handleTextClick(item.str)}
+                          className="absolute pointer-events-auto cursor-pointer hover:bg-amber-400/20 rounded-xs transition-colors"
+                          style={{
+                            left: `${item.left}px`,
+                            top: `${item.top}px`,
+                            width: `${Math.max(item.width, 10)}px`,
+                            height: `${item.height}px`,
+                          }}
+                          title={`Click to jump to: "${item.str}" in code`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Subtle Page Number Badge */}
+                    <div className="absolute -top-3 right-2 bg-[#1e1d1a]/90 backdrop-blur border border-[#3d3a33] text-[9px] font-mono text-[#8c887e] px-1.5 py-0.5 rounded shadow">
+                      Page {pageNum} of {numPages}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
 
-        {/* Two-Column Body Layout */}
-        <div className="grid grid-cols-2 gap-6 my-4 text-xs leading-relaxed text-[#292524] text-justify">
-          {/* Column 1: Introduction & Method */}
-          <div className="space-y-3">
-            <h2
-              onClick={() => onJumpToSource(22)}
-              className="text-sm font-bold border-b border-[#d6d3d1] pb-1 cursor-pointer hover:text-amber-700"
-            >
-              1. Introduction
-            </h2>
-
-            {editingKey === 'intro' ? (
-              <textarea
-                value={editText}
-                autoFocus
-                rows={4}
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={() => handleSaveEdit('intro', 24)}
-                className="w-full bg-white border-2 border-amber-500 rounded p-1.5 text-xs text-[#1c1917] font-serif focus:outline-none shadow-md"
-              />
-            ) : (
-              <p
-                onClick={() => {
-                  setEditingKey('intro');
-                  setEditText(introText);
-                  onJumpToSource(24);
-                }}
-                className="cursor-text hover:bg-amber-100/60 rounded p-1 transition-colors"
-                title="Click to edit introduction"
+        {/* Floating Bottom Navigation Pill (Matching the Prism Reference Design) */}
+        {!isLoading && !error && numPages > 0 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+            <div className="flex items-center bg-[#181714]/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#33302a] shadow-2xl text-[11px] text-[#a8a49c] gap-2 select-none">
+              {/* Recompile / Reload */}
+              <button
+                onClick={onCompile}
+                className="p-1 hover:text-[#d4af37] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                title="Recompile (Ctrl+S)"
               >
-                {introText}
-              </p>
-            )}
+                <RotateCw className={`w-3.5 h-3.5 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
+              </button>
 
-            <h2
-              onClick={() => onJumpToSource(30)}
-              className="text-sm font-bold border-b border-[#d6d3d1] pb-1 pt-2 cursor-pointer hover:text-amber-700"
-            >
-              2. Methodology
-            </h2>
-
-            {editingKey === 'method' ? (
-              <textarea
-                value={editText}
-                autoFocus
-                rows={3}
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={() => handleSaveEdit('method', 32)}
-                className="w-full bg-white border-2 border-amber-500 rounded p-1.5 text-xs text-[#1c1917] font-serif focus:outline-none shadow-md"
-              />
-            ) : (
-              <p
+              <button
                 onClick={() => {
-                  setEditingKey('method');
-                  setEditText(methodText);
-                  onJumpToSource(32);
+                  if (pdfDoc) {
+                    scrollToPage(currentPage);
+                  }
                 }}
-                className="cursor-text hover:bg-amber-100/60 rounded p-1 transition-colors"
-                title="Click to edit methodology"
+                className="p-1 hover:text-[#d4af37] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                title="Refresh View"
               >
-                {methodText}
-              </p>
-            )}
-          </div>
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
 
-          {/* Column 2: Figure with Semantic Drag & Drop Guide */}
-          <div className="space-y-4">
-            {editingKey === 'results' ? (
-              <textarea
-                value={editText}
-                autoFocus
-                rows={3}
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={() => handleSaveEdit('results', 42)}
-                className="w-full bg-white border-2 border-amber-500 rounded p-1.5 text-xs text-[#1c1917] font-serif focus:outline-none shadow-md"
-              />
-            ) : (
-              <p
-                onClick={() => {
-                  setEditingKey('results');
-                  setEditText(resultsText);
-                  onJumpToSource(42);
-                }}
-                className="cursor-text hover:bg-amber-100/60 rounded p-1 transition-colors"
-                title="Click to edit results"
+              <span className="text-[#3d3a33]">|</span>
+
+              {/* Prev Page */}
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => scrollToPage(currentPage - 1)}
+                className="p-1 hover:text-[#f4f2ec] disabled:text-[#3d3a33] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                title="Previous Page"
               >
-                {resultsText}
-              </p>
-            )}
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
 
-            {/* Semantic Draggable Figure */}
-            <div
-              draggable
-              onDragStart={() => setDraggedBlock('figure-2')}
-              onDragEnd={() => {
-                setDraggedBlock(null);
-                setDropTarget(null);
-                onBlockReorder('figure-2', 'after-results');
-              }}
-              className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center relative group cursor-grab active:cursor-grabbing transition-all shadow-sm ${
-                draggedBlock === 'figure-2'
-                  ? 'border-amber-500 bg-amber-50/60 scale-95 opacity-80'
-                  : 'border-sky-400 bg-sky-50/40 hover:border-sky-600'
-              }`}
-            >
-              {/* Drag Handle Floating Badge */}
-              <div className="absolute -top-3 right-3 bg-sky-600 text-white text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                <GripVertical className="w-2.5 h-2.5" />
-                <span>Drag Figure</span>
-              </div>
+              {/* Page Indicator / Go to PDF */}
+              <span className="text-[10px] font-mono text-[#f4f2ec] px-1">
+                Go to PDF <span className="text-[#8c887e]">({currentPage}/{numPages})</span>
+              </span>
 
-              {/* Flowchart Diagram Graphic */}
-              <div className="w-full space-y-2 py-2 flex flex-col items-center select-none">
-                <div className="w-24 h-6 border border-zinc-700 rounded bg-white flex items-center justify-center text-[10px] shadow-sm">
-                  Source (.tex)
-                </div>
-                <div className="w-px h-3 bg-zinc-700" />
-                <div className="w-28 h-8 border-2 border-sky-500 rounded bg-sky-100 flex items-center justify-center text-[10px] font-bold text-sky-900 shadow-sm">
-                  SyncTeX Bridge
-                </div>
-                <div className="w-px h-3 bg-zinc-700" />
-                <div className="w-24 h-6 border border-zinc-700 rounded bg-white flex items-center justify-center text-[10px] shadow-sm">
-                  Compiled PDF
-                </div>
-              </div>
-
-              <div className="text-[10px] font-semibold text-zinc-700 mt-2 text-center">
-                Figure 2: Bidirectional SyncTeX Architecture
-              </div>
-            </div>
-
-            {/* Inline Text Edit Highlight Cursor */}
-            <div
-              onClick={() => {
-                setEditingKey('results');
-                setEditText(resultsText);
-                onJumpToSource(42);
-              }}
-              className="bg-amber-200/50 border border-amber-400/80 rounded px-2 py-1 text-xs cursor-text flex items-center gap-1"
-            >
-              <span>... The primary <span className="underline decoration-amber-600 font-medium">results from</span> this analysis (see Figure 2).</span>
-              <span className="w-0.5 h-3.5 bg-black animate-pulse" />
+              {/* Next Page */}
+              <button
+                disabled={currentPage >= numPages}
+                onClick={() => scrollToPage(currentPage + 1)}
+                className="p-1 hover:text-[#f4f2ec] disabled:text-[#3d3a33] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                title="Next Page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-        </div>
-
-        {/* Page Footer */}
-        <div className="border-t border-[#e7e5e4] pt-3 flex items-center justify-between text-[10px] text-[#78716c]">
-          <span>LocTex Research Workspace</span>
-          <span className="font-mono">Page 1</span>
-        </div>
+        )}
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
