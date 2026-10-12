@@ -20,6 +20,7 @@ interface EditorPaneProps {
   diagnostics: DiagnosticError[];
   onLineClick?: (line: number) => void;
   activeLine?: number | null;
+  onCompile?: () => void;
 }
 
 // Custom Vibrant LaTeX Highlight Style
@@ -37,9 +38,14 @@ const latexHighlightStyle = HighlightStyle.define([
 ]);
 
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
-  ({ content, onChange, diagnostics, onLineClick, activeLine }, ref) => {
+  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const onCompileRef = useRef(onCompile);
+
+    useEffect(() => {
+      onCompileRef.current = onCompile;
+    }, [onCompile]);
 
     // Expose imperative methods for topbar formatting
     useImperativeHandle(ref, () => ({
@@ -162,7 +168,24 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
           StreamLanguage.define(stex),
           syntaxHighlighting(latexHighlightStyle),
           autocompletion({ override: [latexCompletions] }),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          keymap.of([
+            {
+              key: 'Mod-Enter',
+              run: () => {
+                onCompileRef.current?.();
+                return true;
+              },
+            },
+            {
+              key: 'Mod-s',
+              run: () => {
+                onCompileRef.current?.();
+                return true;
+              },
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
           editorTheme,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {

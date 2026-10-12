@@ -9,15 +9,18 @@ import {
   Maximize2,
   ZoomIn,
   ZoomOut,
+  GitCommit,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
 
 interface HeaderPillProps {
   compileStatus: CompileStatus;
+  compileDurationMs?: number;
   zoom: number;
   onZoomChange: (zoom: number) => void;
   onFitWidth: () => void;
   onCompile: () => void;
+  onOpenGitHubActivity?: () => void;
   fontFamily: FontFamily;
   onFontFamilyChange: (font: FontFamily) => void;
   fontSize: string;
@@ -40,10 +43,12 @@ interface HeaderPillProps {
 
 export const HeaderPill: React.FC<HeaderPillProps> = ({
   compileStatus,
+  compileDurationMs,
   zoom,
   onZoomChange,
   onFitWidth,
   onCompile,
+  onOpenGitHubActivity,
   fontFamily,
   onFontFamilyChange,
   fontSize,
@@ -82,13 +87,27 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
   return (
     <header className="h-10 bg-[#141311] border-b border-[#24221e] px-3 flex items-center justify-between select-none relative z-30 font-sans">
-      {/* Window Controls */}
+      {/* Window Controls & GitHub Activity Shortcut */}
       <div className="flex items-center gap-3 w-1/4">
         <div className="flex items-center gap-1.5 pl-1">
           <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
           <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
           <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm" />
         </div>
+
+        {onOpenGitHubActivity && (
+          <button
+            onClick={onOpenGitHubActivity}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1e1d1a] hover:bg-[#282622] text-[#8c887e] hover:text-[#f4f2ec] border border-[#33302a] text-[10px] font-mono transition-colors"
+            title="Inspect 5 GitHub activities & contribution graph"
+          >
+            <GitCommit className="w-3 h-3 text-emerald-400" />
+            <span className="hidden md:inline">Activities</span>
+            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] flex items-center justify-center font-bold">
+              5
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Floating Center Pill */}
@@ -101,6 +120,11 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
             <span className="text-[#c7c3b8]">Status:</span>
             <span className="text-[#f4f2ec] font-semibold flex items-center gap-1">
               {compileStatus === 'compiling' ? 'Compiling...' : 'Ready'}
+              {compileDurationMs !== undefined && compileDurationMs > 0 && compileStatus === 'ready' && (
+                <span className="text-[9px] text-emerald-400 font-mono">
+                  ({(compileDurationMs / 1000).toFixed(1)}s)
+                </span>
+              )}
               <span
                 className={`w-2 h-2 rounded-full inline-block ${
                   compileStatus === 'compiling'
@@ -114,7 +138,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
             <button
               onClick={onCompile}
               className="p-0.5 hover:text-[#d4af37] text-[#8c887e] transition-colors"
-              title="Compile (Ctrl+S / Cmd+S)"
+              title="Compile (Ctrl+Enter / Cmd+Enter / Ctrl+S)"
             >
               <RotateCw className={`w-3 h-3 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
             </button>
