@@ -1,141 +1,130 @@
-# 🛡️ ASP: Aegis Swarm Protocol (Universal Multi-Agent OS)
+# 🖋️ LocTex: The Personal LaTeX Research Studio & Offline Journal
 
-> An autonomous, self-improving, role-specialized multi-agent software engineering organization powered by the **Aegis Swarm Protocol (ASP)**, **Google Antigravity SDK Alignment**, **Pre-Execution Intent Discovery (`ask_question`)**, **Universal Domain Adaptability (CLI, ML/CV, Systems, Web, APIs)**, **17-State FSM Execution**, and **45+ Production-Grade Skills**.
+> An offline-first, self-hosted LaTeX research studio and scientific notebook designed to replace cloud-dependent tools like Overleaf with zero latency, complete data privacy, and publication-ready compilation.
 
 ---
 
-## 📂 Repository Contents
+## 🌟 Key Features
+
+### 1. 🚀 Offline-First Native Compilation
+- **Local TeX Engines**: Compiles directly using your local `pdflatex` (MiKTeX / TeX Live) or `tectonic` binary.
+- **Automated Multi-Pass Citations**: Automatically runs `bibtex` and multi-pass resolution for cross-references and citations.
+- **Zero Cloud Latency & Total Privacy**: Your unpublished papers, patents, and research notes never leave your machine.
+- **Space-Safe Execution**: Reliable child process execution on Windows, macOS, and Linux, even with spaces or hyphens in directory paths.
+
+### 2. 📄 HiDPI Retina Vector PDF Viewer & Click-to-Jump Navigation
+- **Crisp Vector Rendering**: Powered by PDF.js with HiDPI canvas scaling, zoom controls (50%–250%), and fit-to-width computation.
+- **Bi-Directional Source Synchronization**: Click any equation, text, or figure caption in the compiled PDF viewer to automatically jump to and focus the corresponding line in the LaTeX source editor.
+- **Interactive Text Layer**: Native text selection and copy-paste directly from the compiled PDF preview.
+
+### 3. 📚 Academic Starter Templates
+Scaffold publication-ready manuscripts in seconds with built-in templates:
+- **IEEEtran Paper (`IEEEtran`)**: Double-column IEEE Transactions and Conference format with author blocks, index terms, equations, and bibliography.
+- **Academic Research Article (`article`)**: Standard single-column journal paper with abstract, equations, and section structure.
+- **Beamer Presentation (`beamer`)**: Academic slide deck with Madrid theme, outline frames, and theorem blocks.
+- **Academic CV / Resume (`article` + `titlesec`)**: Elegant curriculum vitae format for researchers, appointments, publications, and skills.
+
+### 4. 📦 Flexible Export Options
+- **Export as PDF**: Direct download of the compiled, high-resolution vector PDF.
+- **Export as ZIP**: Packages the complete project directory—including all `.tex` sources, `.bib` bibliographies, images, and figures—into a standard archive compatible with Overleaf and arXiv submission.
+
+### 5. 💻 Modern CodeMirror 6 Editor & Diagnostics
+- **LaTeX Highlighting & Completion**: Responsive syntax highlighting, bracket matching, and auto-complete.
+- **Live Error Diagnostics**: Real-time log parser extracting exact error messages, file names, and line numbers.
+- **Typography Toolbar**: Format selections with bold (`\textbf`), italic (`\textit`), underline (`\underline`), and code (`\texttt`).
+- **Version Timeline**: Automatic SQLite-backed version snapshots recorded on compilation.
+
+### 6. 📓 Daily Research Journal
+- Integrated lab notebook mode for recording daily experiments, hypotheses, mathematical derivations, and observations alongside your formal papers.
+
+---
+
+## 🛠️ Architecture & Tech Stack
 
 ```text
-ASP-Aegis-Swarm-Protocol/
-├── .agents/
-│   ├── custom-agents/                 # Universal Role-Specialized Agent Definitions
-│   │   ├── poai.md                    # 🎯 Principal Orchestrator & Intent Probing (Interactive)
-│   │   ├── aai.md                     # 📐 Systems Architect & Schema Contracts (Zod / Pydantic / Protobuf)
-│   │   ├── uxai.md                    # 👁️ UX, HCI & Mockup Specialist (Axe-Core / ImageGen / TUIs)
-│   │   ├── fai.md                     # 🎨 UI & Interaction Engineer (Web / React / Rich TUIs / Desktop)
-│   │   ├── bai.md                     # ⚙️ Systems & Backend Engineer (Rust / Go / Python / Node / SQL)
-│   │   ├── evai.md                    # 🧬 Evolution, Evaluation, ML & AI (SDK .eval() / PyTorch / RAG)
-│   │   ├── sai.md                     # 🛡️ Security, Sandboxing & Policy Broker (9-Tier Precedence)
-│   │   ├── qai.md                     # 🧪 QA, Benchmarking & Verification (Vitest / Pytest / Cargo / Playwright)
-│   │   └── gai.md                     # 🔀 Git & Packaging Gatekeeper (SemVer / PyPI / Crates / npm / CI/CD)
-│   ├── rules/                         # Progressive Disclosure Rules
-│   │   ├── 00-goal-discovery.md       # (always_on) Mandatory Pre-Execution Goal & Requirements Probing
-│   │   ├── 01-core-principles.md      # (always_on) The 6 Universal Principles
-│   │   ├── 02-design-mockup-gate.md   # (always_on) Mandatory UXAI Mockup Image Approval Gate
-│   │   ├── 03-parallel-psbp.md        # (model_decision) PSBP Swarm Orchestration & Branch Worktrees
-│   │   ├── 04-backend-database.md     # (model_decision) Persistence Invariants & Migrations
-│   │   ├── 05-git-quality-gate.md     # (model_decision) Conventional Commits & Quality Gates
-│   │   └── 06-structured-state-events.md # (always_on) 17-State FSM, 9-Tier Policies & Stop Hook Continuation
-│   ├── schemas/                       # Event Envelopes & TaskState Definitions
-│   │   ├── task-state.ts              # TypeScript 17-State Finite State Machine & Types
-│   │   ├── task-event-schema.json     # Formal JSON Schema for Telemetry Events
-│   │   ├── evaluation-schema.json     # Benchmark Test Specification Schema
-│   │   ├── evolution-candidate-schema.json # Candidate Mutation Schema
-│   │   └── aos-metrics.ts             # Quantitative Metrics & Scoring Model
-│   ├── evaluations/                   # Deterministic Benchmark Registry
-│   │   ├── benchmark.json             # Master Benchmark Catalog & Weights
-│   │   ├── frontend/                  # Mockup Gate & WCAG Tokens Benchmarks
-│   │   ├── backend/                   # RLS Isolation & Zero-Downtime Migration Benchmarks
-│   │   ├── architecture/              # Contract Locking & Context Boundary Benchmarks
-│   │   ├── security/                  # AST Sanitization & 3-Tier Auth Benchmarks
-│   │   └── regression/                # Anti-Pattern Regression Prevention
-│   ├── evolution/                     # Autonomous Self-Evolution Engine
-│   │   ├── proposals/                 # EVAI-Generated Optimization Proposals
-│   │   ├── candidates/                # Staged Candidate Mutations
-│   │   ├── evaluations/               # Replay Benchmark Comparison Reports
-│   │   ├── promoted/                  # Versioned Evolution Promotion Ledger
-│   │   └── rejected/                  # Disqualified Candidate Archive
-│   ├── policies/                      # Swarm Operational Policies
-│   │   ├── task-decomposition.json    # Epic & Bugfix Subtask Breakdown Policy
-│   │   ├── routing-policy.json        # Universal Specialist Routing & Domain Activation Rules
-│   │   ├── security-capability-policy.json # 9-Tier Precedence & Sandbox Policy
-│   │   └── quality-gate-policy.json   # Multi-Tier Hook Failure Thresholds
-│   ├── telemetry/                     # Immutable Audit & Event Logging
-│   │   └── event-ledger.jsonl         # Append-Only Cross-Agent Event Ledger
-│   ├── scripts/                       # Replay Engine, Gatekeepers & Evolution Automation
-│   │   ├── capability-broker.cjs      # 9-Tier Policy Precedence & Prompt-Injection Guard
-│   │   ├── verify-path-isolation.cjs  # Fast pre_edit lightweight boundary guard
-│   │   ├── log-event.cjs              # Structured event logger & state validator
-│   │   ├── replay-engine.cjs          # Baseline vs Candidate benchmark replay harness
-│   │   ├── promote-candidate.cjs      # GAI evolution promotion gatekeeper
-│   │   ├── rollback-evolution.cjs     # Emergency canary rollback engine
-│   │   ├── extract-human-correction.cjs # /learn human correction distillation engine
-│   │   └── run-evolution-loop.cjs     # Closed-loop autonomous self-improvement runner
-│   ├── skills/                        # 45+ Production-Grade Progressive Skills
-│   │   ├── # 🎯 POAI Skills
-│   │   ├── sop-multiagent-orchestrator/
-│   │   ├── agno-swarm-runtime/
-│   │   ├── llama-agent-topology/
-│   │   ├── wsjf-backlog-prioritization/
-│   │   ├── stakeholder-alignment-engine/
-│   │   ├── # 📐 AAI Skills
-│   │   ├── zod-runtime-contract-guard/
-│   │   ├── openapi-ts-codegen/
-│   │   ├── cqrs-event-bus-engine/
-│   │   ├── idempotency-key-manager/
-│   │   ├── distributed-tracing-telemetry/
-│   │   ├── # 🎨 Fai Skills
-│   │   ├── shadcn-radix-primitives/
-│   │   ├── framer-motion-physics-engine/
-│   │   ├── tailwind-semantic-tokens/
-│   │   ├── zero-cost-asset-optimizer/
-│   │   ├── rtl-logical-layout-engine/
-│   │   ├── # ⚙️ BAI Skills
-│   │   ├── kanel-postgres-typegen/
-│   │   ├── supabase-realtime-rls/
-│   │   ├── prisma-zero-downtime-migrator/
-│   │   ├── multi-channel-payout-ledger/
-│   │   ├── cache-aside-redis-booster/
-│   │   ├── # 🧬 EVAI Skills
-│   │   ├── self-improving-evolution-loop/
-│   │   ├── skill-self-evaluator/
-│   │   ├── instructor-zod-structured-llm/
-│   │   ├── vercel-ai-sdk-streaming/
-│   │   ├── litellm-fallback-router/
-│   │   ├── rag-context-compressor/
-│   │   ├── dynamic-mdx-sandbox-parser/
-│   │   ├── # 👁️ UXAI Skills
-│   │   ├── ai-design-mockup-generator/
-│   │   ├── axe-core-a11y-auditor/
-│   │   ├── radix-focus-trap-manager/
-│   │   ├── storybook-visual-spec/
-│   │   ├── headless-visual-audit/
-│   │   ├── # 🛡️ SAI Skills
-│   │   ├── dompurify-xss-sanitizer/
-│   │   ├── semgrep-security-scanner/
-│   │   ├── three-tier-boundary-enforcer/
-│   │   ├── node-security-hardening/
-│   │   ├── cryptographic-token-vault/
-│   │   ├── # 🧪 QAI Skills
-│   │   ├── playwright-e2e-matrix-runner/
-│   │   ├── vitest-react-testing-library/
-│   │   ├── test-fixture-pollution-guard/
-│   │   ├── flaky-test-analyzer-healer/
-│   │   ├── performance-lighthouse-auditor/
-│   │   ├── # 🔀 GAI Skills
-│   │   ├── commitlint-conventional-validator/
-│   │   ├── semantic-release-automator/
-│   │   ├── gh-cli-pr-gatekeeper/
-│   │   ├── git-rebase-drift-preventer/
-│   │   ├── static-type-quality-gate/
-│   │   └── # 🧠 Meta Skills & Persistent Ledgers
-│   │       ├── velox-design-tokens/
-│   │       ├── contract-locking/
-│   │       └── post-mortem-ledger/
-│   ├── hooks.json                     # 4-Tier Progressive Quality Gate & SDK Lifecycle Hooks
-│   └── user_prefs.json                # Workspace State & HITL Config
-├── ARCHITECTURE_DIAGRAMS.md           # Visual Mermaid topology and sequence diagrams
-├── HOW_TO_USE_IN_ANY_PROJECT.md       # Step-by-step injection guide for new codebases
-└── README.md                          # System overview and quick reference
+loctex/
+├── src/                         # React 19 Frontend Shell
+│   ├── components/
+│   │   ├── PdfCanvas.tsx        # PDF.js Vector Canvas & Click-to-Source Jump
+│   │   ├── EditorPane.tsx       # CodeMirror 6 LaTeX Editor
+│   │   ├── HeaderPill.tsx       # Typography, Zoom & Compile Controls
+│   │   ├── Sidebar.tsx          # File Tree, Version Timeline & Export Menu
+│   │   ├── Modals.tsx           # Starter Template Picker & ZIP Importer
+│   │   └── ProjectsDashboard.tsx# Projects Grid & Workspace Overview
+│   └── App.tsx                  # Workspace Orchestration & State Sync
+├── server/                      # Fastify Backend Server
+│   ├── compiler/
+│   │   ├── tectonic-runner.ts   # Space-Safe TeX & Multi-Pass BibTeX Runner
+│   │   └── error-parser.ts      # LaTeX Error & Warning AST Parser
+│   ├── db/database.ts           # SQLite Persistent Store (Projects & Snapshots)
+│   ├── services/
+│   │   ├── synctex-parser.ts    # SyncTeX Binary Stream Parser
+│   │   └── zip-service.ts       # Secure ZIP Import / Export Engine
+│   └── index.ts                 # REST API Endpoints with Path Traversal Defense
+└── tests/                       # Vitest Test Suite (13 Passing Tests)
+```
+
+- **Frontend**: React 19, Vite, Tailwind CSS, Lucide Icons, PDF.js, CodeMirror 6, KaTeX.
+- **Backend**: Node.js, Fastify, TypeScript (`tsx`), SQLite3, JSZip.
+- **Compiler**: Local `pdflatex` / `tectonic` / `bibtex`.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+1. **Node.js** (v18 or higher)
+2. **TeX Distribution**: [MiKTeX](https://miktex.org/) (Windows), [MacTeX](https://tug.org/mactex/) (macOS), or [TeX Live](https://tug.org/texlive/) (Linux). Alternatively, [Tectonic](https://tectonic-typesetting.github.io/).
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/MHA963/loctex.git
+cd loctex
+
+# Install dependencies
+npm install
+```
+
+### Running Locally
+
+```bash
+# Start the Fastify backend server (Port 4173)
+npm run server
+
+# In a separate terminal, start the Vite frontend (Port 5173)
+npm run dev
+```
+
+Open your browser at `http://localhost:5173` to start writing.
+
+---
+
+## 🧪 Testing & Verification
+
+Run the automated test suite with Vitest:
+
+```bash
+npm test
+```
+
+Run static type checking and production build:
+
+```bash
+npm run build
 ```
 
 ---
 
-## 🌟 Key Highlights
+## 🔒 Security & Privacy
 
-1. **Mandatory Intent & Goal Discovery Gate (Rule 00)**: POAI actively interviews the user (`ask_question` / `/grill-me`) across 4 discovery dimensions (Domain, Protocols, Non-Functional Budgets, DoD) before decomposing tasks or creating worktree branches.
-2. **Universal Software & Coding Adaptability**: Fully generalized beyond web apps to handle CLI tools, ML/CV pipelines, systems programming (Rust/Go/C++), microservices, and library packages.
-3. **Google Antigravity SDK Alignment**: Direct integration with SDK behavioral modes (`INTERACTIVE` vs `AUTONOMOUS`), 9-tier safety precedence, OS command sandboxing, and Stop Hook auto-healing continuation.
-4. **Closed-Loop Autonomous Self-Improvement**: EVAI continuously benchmarks swarm performance, evolving rules and skills against deterministic regression suites with zero subjective self-grading.
-5. **Deterministic 17-State FSM**: Strict state transitions from `DISCOVERY` through `GOAL_LOCKED`, `CONTRACT_LOCKED`, `IMPLEMENTING`, and `VERIFICATION` to `RELEASED`.
+- **Local Storage**: All projects and databases are stored locally in `loctex_data/` on your filesystem.
+- **Path Containment**: Built-in boundary verification protects file CRUD handlers against directory traversal attacks.
+- **Binary Asset Protection**: Prevents binary graphics (`.png`, `.jpg`, `.pdf`) from being corrupted by auto-save routines.
+
+---
+
+## 📄 License
+
+MIT License. Designed and built for reproducible academic research and private manuscript authoring.
