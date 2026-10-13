@@ -498,7 +498,6 @@ export default function App() {
         onZoomChange={setZoom}
         onFitWidth={handleFitWidth}
         onCompile={() => triggerCompile()}
-        onOpenGitHubActivity={() => setCurrentView('dashboard')}
         onOpenQwenAssistant={() => setQwenModalOpen(true)}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Folder, Plus, UploadCloud, Trash2, Edit2, FileText, Clock, ArrowRight } from 'lucide-react';
 import { Project } from '../types/index.ts';
-import { GitHubActivityGraph } from './GitHubActivityGraph.tsx';
 
 interface ProjectsDashboardProps {
   projects: Project[];
@@ -56,9 +55,6 @@ export const ProjectsDashboard: React.FC<ProjectsDashboardProps> = ({
             </button>
           </div>
         </div>
-
-        {/* GitHub Contribution Graph & Activities */}
-        <GitHubActivityGraph />
 
         {/* Projects Section Header */}
         <div className="flex items-center justify-between pt-2">

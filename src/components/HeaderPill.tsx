@@ -9,7 +9,6 @@ import {
   Maximize2,
   ZoomIn,
   ZoomOut,
-  GitCommit,
   Sparkles,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
@@ -21,7 +20,6 @@ interface HeaderPillProps {
   onZoomChange: (zoom: number) => void;
   onFitWidth: () => void;
   onCompile: () => void;
-  onOpenGitHubActivity?: () => void;
   onOpenQwenAssistant?: () => void;
   fontFamily: FontFamily;
   onFontFamilyChange: (font: FontFamily) => void;
@@ -50,7 +48,6 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onZoomChange,
   onFitWidth,
   onCompile,
-  onOpenGitHubActivity,
   onOpenQwenAssistant,
   fontFamily,
   onFontFamilyChange,
@@ -90,27 +87,13 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
   return (
     <header className="h-10 bg-[#141311] border-b border-[#24221e] px-3 flex items-center justify-between select-none relative z-30 font-sans">
-      {/* Window Controls & GitHub Activity + Qwen AI Shortcuts */}
+      {/* Window Controls & Qwen AI Shortcut */}
       <div className="flex items-center gap-2 w-1/4">
         <div className="flex items-center gap-1.5 pl-1">
           <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
           <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
           <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm" />
         </div>
-
-        {onOpenGitHubActivity && (
-          <button
-            onClick={onOpenGitHubActivity}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1e1d1a] hover:bg-[#282622] text-[#8c887e] hover:text-[#f4f2ec] border border-[#33302a] text-[10px] font-mono transition-colors"
-            title="Inspect GitHub activities & contribution graph"
-          >
-            <GitCommit className="w-3 h-3 text-emerald-400" />
-            <span className="hidden lg:inline">Activities</span>
-            <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] flex items-center justify-center font-bold">
-              5
-            </span>
-          </button>
-        )}
 
         {onOpenQwenAssistant && (
           <button
