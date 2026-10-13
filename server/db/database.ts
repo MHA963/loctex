@@ -27,10 +27,14 @@ export class LocTexDatabase {
   }
 
   private initSchema() {
-    this.db.exec(INITIAL_SCHEMA_SQL, (err) => {
-      if (err) {
-        console.error('Failed to initialize SQLite schema:', err);
-      }
+    this.db.serialize(() => {
+      this.db.run('PRAGMA foreign_keys = ON;');
+      this.db.run('PRAGMA journal_mode = WAL;');
+      this.db.exec(INITIAL_SCHEMA_SQL, (err) => {
+        if (err) {
+          console.error('Failed to initialize SQLite schema:', err);
+        }
+      });
     });
   }
 

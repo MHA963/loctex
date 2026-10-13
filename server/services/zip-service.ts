@@ -22,8 +22,9 @@ export class ZipService {
       const entry = zip.files[relativePath];
       const destPath = path.resolve(targetDir, relativePath);
 
-      // Prevent directory traversal attacks
-      if (!destPath.startsWith(targetDir)) {
+      // Prevent directory traversal / Zip-Slip attacks
+      const rel = path.relative(path.resolve(targetDir), destPath);
+      if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '') {
         continue;
       }
 

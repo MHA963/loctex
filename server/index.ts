@@ -387,15 +387,30 @@ fastify.get('/api/projects/:id/files', async (request, reply) => {
   return { files };
 });
 
+function resolveContainedPath(projectRoot: string, targetPath: string): string {
+  const root = path.resolve(projectRoot);
+  const clean = (targetPath || '').trim();
+  if (!clean || clean === '.' || clean === './' || clean === '.\\') {
+    throw new Error('Access denied: Target path must not be root directory');
+  }
+  const fullPath = path.resolve(root, clean);
+  const rel = path.relative(root, fullPath);
+  if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '') {
+    throw new Error('Access denied: Directory traversal forbidden');
+  }
+  return fullPath;
+}
+
 fastify.get('/api/projects/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
   const { path: relPath } = request.query as { path: string };
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const root = path.resolve(project.root_path);
-  const fullPath = path.resolve(root, relPath || project.active_file);
-  if (!fullPath.startsWith(root)) {
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, relPath || project.active_file || 'main.tex');
+  } catch {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
@@ -413,9 +428,10 @@ fastify.post('/api/projects/:id/file', async (request, reply) => {
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const root = path.resolve(project.root_path);
-  const fullPath = path.resolve(root, body.path);
-  if (!fullPath.startsWith(root)) {
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, body.path);
+  } catch {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
@@ -438,9 +454,10 @@ fastify.post('/api/projects/:id/file/create', async (request, reply) => {
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const root = path.resolve(project.root_path);
-  const fullPath = path.resolve(root, body.path);
-  if (!fullPath.startsWith(root)) {
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, body.path);
+  } catch {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
@@ -460,9 +477,10 @@ fastify.delete('/api/projects/:id/file', async (request, reply) => {
   const project = await db.getProject(id);
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
-  const root = path.resolve(project.root_path);
-  const fullPath = path.resolve(root, relPath);
-  if (!fullPath.startsWith(root)) {
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, relPath);
+  } catch {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
@@ -481,11 +499,16 @@ fastify.post('/api/projects/:id/compile', async (request, reply) => {
   if (!project) return reply.status(404).send({ error: 'Project not found' });
 
   const activeFile = body.activeFile || project.active_file || 'main.tex';
+  let fullMainPath: string;
+  try {
+    fullMainPath = resolveContainedPath(project.root_path, activeFile);
+  } catch {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
 
   // If content was passed, save it first
   if (body.content !== undefined) {
-    const fullPath = path.resolve(project.root_path, activeFile);
-    fs.writeFileSync(fullPath, body.content, 'utf-8');
+    fs.writeFileSync(fullMainPath, body.content, 'utf-8');
   }
 
   const result = await compiler.compile(project.root_path, activeFile);
