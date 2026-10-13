@@ -23,18 +23,18 @@ interface EditorPaneProps {
   onCompile?: () => void;
 }
 
-// Custom Vibrant LaTeX Highlight Style
+// Custom Vibrant LaTeX Highlight Style supporting all dynamic themes
 const latexHighlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: '#38bdf8', fontWeight: 'bold' }, // \documentclass, \section, \begin
-  { tag: t.atom, color: '#d4af37' }, // LaTeX macros & commands
-  { tag: t.bracket, color: '#fbbf24' }, // { } and [ ]
-  { tag: t.string, color: '#a7f3d0' }, // Strings & text arguments
-  { tag: t.comment, color: '#64748b', fontStyle: 'italic' }, // % Comments
-  { tag: t.number, color: '#f472b6' }, // Numbers & dimensions (11pt)
-  { tag: t.variableName, color: '#e2e8f0' }, // Identifiers
-  { tag: t.propertyName, color: '#fb923c' }, // Options & tags
-  { tag: t.operator, color: '#38bdf8' }, // Math operators
-  { tag: t.heading, color: '#38bdf8', fontWeight: 'bold' },
+  { tag: t.keyword, color: 'var(--syntax-keyword, #38bdf8)', fontWeight: 'bold' }, // \documentclass, \section, \begin
+  { tag: t.atom, color: 'var(--syntax-atom, #d4af37)' }, // LaTeX macros & commands
+  { tag: t.bracket, color: 'var(--syntax-bracket, #fbbf24)' }, // { } and [ ]
+  { tag: t.string, color: 'var(--syntax-string, #a7f3d0)' }, // Strings & text arguments
+  { tag: t.comment, color: 'var(--syntax-comment, #64748b)', fontStyle: 'italic' }, // % Comments
+  { tag: t.number, color: 'var(--syntax-number, #f472b6)' }, // Numbers & dimensions (11pt)
+  { tag: t.variableName, color: 'var(--syntax-variable, #e2e8f0)' }, // Identifiers
+  { tag: t.propertyName, color: 'var(--syntax-property, #fb923c)' }, // Options & tags
+  { tag: t.operator, color: 'var(--syntax-keyword, #38bdf8)' }, // Math operators
+  { tag: t.heading, color: 'var(--syntax-keyword, #38bdf8)', fontWeight: 'bold' },
 ]);
 
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
@@ -123,7 +123,7 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
 
       const editorTheme = EditorView.theme({
         '&': {
-          color: '#f4f2ec',
+          color: 'var(--text-primary, #f4f2ec)',
           backgroundColor: 'var(--bg-primary, #0e0d0b)',
           fontSize: '13.5px',
           fontFamily: "'Geist Mono', 'Fira Code', 'Cascadia Code', monospace",
@@ -131,30 +131,30 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
           lineHeight: '1.6',
         },
         '.cm-content': {
-          caretColor: '#d4af37',
+          caretColor: 'var(--accent-primary, #d4af37)',
           padding: '16px 0',
         },
         '.cm-cursor': {
-          borderLeftColor: '#d4af37',
+          borderLeftColor: 'var(--accent-primary, #d4af37)',
           borderLeftWidth: '2px',
         },
         '.cm-gutters': {
-          backgroundColor: 'var(--bg-primary, #0e0d0b)',
-          color: '#525048',
-          borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: 'var(--syntax-gutter-bg, var(--bg-secondary, #141311))',
+          color: 'var(--syntax-gutter-text, #525048)',
+          borderRight: '1px solid var(--border-color-subtle, rgba(255, 255, 255, 0.08))',
           paddingRight: '10px',
           paddingLeft: '4px',
         },
         '.cm-activeLine': {
-          backgroundColor: 'rgba(212, 175, 55, 0.07)',
+          backgroundColor: 'var(--accent-glow, rgba(212, 175, 55, 0.07))',
         },
         '.cm-activeLineGutter': {
-          backgroundColor: 'rgba(212, 175, 55, 0.15)',
-          color: '#d4af37',
+          backgroundColor: 'var(--accent-glow, rgba(212, 175, 55, 0.15))',
+          color: 'var(--accent-primary, #d4af37)',
           fontWeight: 'bold',
         },
         '.cm-selectionBackground, ::selection': {
-          backgroundColor: 'rgba(212, 175, 55, 0.25) !important',
+          backgroundColor: 'var(--accent-glow, rgba(212, 175, 55, 0.25)) !important',
         },
       });
 

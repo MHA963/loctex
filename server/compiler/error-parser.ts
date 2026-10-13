@@ -102,6 +102,18 @@ export class LaTeXErrorParser {
       };
     }
 
+    // Font expansion / microtype scalable font requirement
+    if (normMsg.includes('auto expansion is only possible with scalable fonts') || normMsg.includes('font expansion')) {
+      return {
+        suggestion: `pdfTeX microtype font expansion requires scalable vector fonts with T1 fontenc. Add \\usepackage{lmodern} right after \\usepackage[T1]{fontenc}.`,
+        quickFix: {
+          label: 'Add \\usepackage{lmodern}',
+          action: 'insert_package',
+          payload: '\\usepackage{lmodern}',
+        },
+      };
+    }
+
     // 3. File not found
     if (normMsg.includes('file') && normMsg.includes('not found')) {
       const fileMatch = message.match(/['`"]([^'`"]+)['`"]/);

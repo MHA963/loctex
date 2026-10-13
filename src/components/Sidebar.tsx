@@ -72,9 +72,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[#d4af37]" />;
+    if (fileName.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[var(--accent-primary)]" />;
     if (fileName.endsWith('.bib')) return <FileCode className="w-3.5 h-3.5 text-blue-400" />;
-    return <FileText className="w-3.5 h-3.5 text-[#78746c]" />;
+    return <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />;
   };
 
   const renderTree = (items: FileItem[], depth = 0) => {
@@ -88,11 +88,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div
               onClick={() => toggleFolder(item.path)}
               style={{ paddingLeft: `${depth * 10 + 6}px` }}
-              className="flex items-center justify-between py-1 px-1.5 rounded-md hover:bg-[#1a1916] text-xs text-[#a8a49c] hover:text-[#f4f2ec] cursor-pointer group"
+              className="flex items-center justify-between py-1 px-1.5 rounded-md hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer group"
             >
               <div className="flex items-center gap-1.5 overflow-hidden">
-                <ChevronDown className={`w-3 h-3 text-[#78746c] transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
-                <Folder className="w-3.5 h-3.5 text-[#78746c]" />
+                <ChevronDown className={`w-3 h-3 text-[var(--text-muted)] transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                <Folder className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 <span className="truncate">{item.name}</span>
               </div>
             </div>
@@ -108,8 +108,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{ paddingLeft: `${depth * 10 + 16}px` }}
           className={`flex items-center justify-between py-1 px-2 rounded-md text-xs cursor-pointer group transition-colors ${
             isSelected
-              ? 'bg-[#262420] text-[#f4f2ec] font-medium shadow-sm border-l-2 border-[#d4af37]'
-              : 'text-[#a8a49c] hover:bg-[#1a1916] hover:text-[#f4f2ec]'
+              ? 'bg-[var(--bg-surface-hover)] text-[var(--text-primary)] font-medium shadow-sm border-l-2 border-[var(--accent-primary)]'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-primary)]'
           }`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
@@ -129,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onRenameFile(item.path, newName);
                 }
               }}
-              className="p-0.5 hover:text-[#d4af37] text-[#78746c]"
+              className="p-0.5 hover:text-[var(--accent-primary)] text-[var(--text-muted)]"
               title="Rename"
             >
               <Edit2 className="w-2.5 h-2.5" />
@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onDeleteFile(item.path);
                 }
               }}
-              className="p-0.5 hover:text-rose-400 text-[#78746c]"
+              className="p-0.5 hover:text-rose-400 text-[var(--text-muted)]"
               title="Delete"
             >
               <Trash2 className="w-2.5 h-2.5" />
@@ -153,24 +153,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="w-60 bg-[#12110f] border-r border-[#24221e] flex flex-col justify-between select-none h-full z-20 text-[#a8a49c] font-sans">
+    <aside className="w-60 bg-[var(--bg-secondary)] border-r border-[var(--border-color-subtle)] flex flex-col justify-between select-none h-full z-20 text-[var(--text-secondary)] font-sans">
       {/* Top Header: All Projects Dashboard Button + New File */}
-      <div className="p-3 pb-2 flex items-center justify-between border-b border-[#24221e]/60">
+      <div className="p-3 pb-2 flex items-center justify-between border-b border-[var(--border-color-subtle)]">
         <button
           onClick={onOpenDashboard}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#1e1d1a] hover:bg-[#2a2824] text-[11px] text-[#f4f2ec] font-medium border border-[#33302a] transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[11px] text-[var(--text-primary)] font-medium border border-[var(--border-color)] transition-colors shadow-sm"
           title="Return to Projects Dashboard"
         >
-          <LayoutGrid className="w-3.5 h-3.5 text-[#d4af37]" />
+          <LayoutGrid className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
           <span>All Projects</span>
         </button>
 
         <button
           onClick={onNewFile}
-          className="flex items-center gap-1 p-1 rounded-md hover:bg-[#1e1d1a] text-[#8c887e] hover:text-[#f4f2ec] transition-colors text-[11px]"
+          className="flex items-center gap-1 p-1 rounded-md hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-[11px]"
           title="New File in Project"
         >
-          <Plus className="w-3.5 h-3.5 text-[#d4af37]" />
+          <Plus className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
           <span>New</span>
         </button>
       </div>
@@ -179,15 +179,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
         <div className="space-y-1">
           {/* Active Project Root */}
-          <div className="flex items-center gap-1.5 py-1 text-xs font-semibold text-[#f4f2ec] truncate">
-            <Folder className="w-3.5 h-3.5 text-[#d4af37]" />
+          <div className="flex items-center gap-1.5 py-1 text-xs font-semibold text-[var(--text-primary)] truncate">
+            <Folder className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
             <span className="truncate">{activeProject?.name || 'My Research'}</span>
           </div>
 
           {/* Dynamic Real File Tree */}
           <div className="space-y-0.5 pt-1">
             {files.length === 0 ? (
-              <div className="text-[11px] text-[#78746c] italic py-2 pl-2">No files found</div>
+              <div className="text-[11px] text-[var(--text-muted)] italic py-2 pl-2">No files found</div>
             ) : (
               renderTree(files)
             )}
@@ -195,17 +195,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* History Timeline */}
-        <div className="pt-3 border-t border-[#24221e]/80">
-          <div className="text-[11px] font-medium text-[#f4f2ec] mb-2 flex items-center gap-1.5">
-            <Clock className="w-3 h-3 text-[#78746c]" />
+        <div className="pt-3 border-t border-[var(--border-color-subtle)]">
+          <div className="text-[11px] font-medium text-[var(--text-primary)] mb-2 flex items-center gap-1.5">
+            <Clock className="w-3 h-3 text-[var(--text-muted)]" />
             <span>History Timeline</span>
           </div>
 
           <div className="pl-1 relative space-y-2 text-xs">
-            <div className="absolute left-[3px] top-1.5 bottom-1.5 w-px bg-[#33302a]" />
+            <div className="absolute left-[3px] top-1.5 bottom-1.5 w-px bg-[var(--border-color-subtle)]" />
 
             {snapshots.length === 0 ? (
-              <div className="text-[11px] text-[#78746c] italic pl-3">Auto-records on compile</div>
+              <div className="text-[11px] text-[var(--text-muted)] italic pl-3">Auto-records on compile</div>
             ) : (
               snapshots.map((snap, i) => (
                 <div
@@ -214,11 +214,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="flex items-center gap-2.5 relative z-10 cursor-pointer group"
                 >
                   <span
-                    className={`w-2 h-2 rounded-full border border-[#12110f] ${
-                      i === 0 ? 'bg-[#f4f2ec]' : 'bg-[#78746c] group-hover:bg-[#f4f2ec]'
+                    className={`w-2 h-2 rounded-full border border-[var(--bg-secondary)] ${
+                      i === 0 ? 'bg-[var(--text-primary)]' : 'bg-[var(--text-muted)] group-hover:bg-[var(--text-primary)]'
                     }`}
                   />
-                  <span className="text-[#a8a49c] group-hover:text-[#f4f2ec] text-[11px] truncate">
+                  <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] text-[11px] truncate">
                     {snap.versionTag}: {snap.summary}
                   </span>
                 </div>
@@ -229,10 +229,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Actions: [ Import ZIP ] [ Export Menu ] */}
-      <div className="p-3 border-t border-[#24221e] grid grid-cols-2 gap-2 bg-[#12110f] relative" ref={exportMenuRef}>
+      <div className="p-3 border-t border-[var(--border-color-subtle)] grid grid-cols-2 gap-2 bg-[var(--bg-secondary)] relative" ref={exportMenuRef}>
         <button
           onClick={onImportZip}
-          className="px-3 py-1.5 rounded-lg bg-[#24221e] hover:bg-[#33302a] text-[#f4f2ec] text-xs font-medium transition-colors text-center border border-[#33302a]/60 shadow-sm"
+          className="px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors text-center border border-[var(--border-color)] shadow-sm"
         >
           Import ZIP
         </button>
@@ -242,19 +242,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setIsExportMenuOpen((prev) => !prev)}
             className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors text-center border shadow-sm flex items-center justify-center gap-1.5 ${
               isExportMenuOpen
-                ? 'bg-[#33302a] text-[#d4af37] border-[#d4af37]/60 shadow-[0_0_8px_rgba(212,175,55,0.2)]'
-                : 'bg-[#24221e] hover:bg-[#33302a] text-[#f4f2ec] border-[#33302a]/60'
+                ? 'bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] border-[var(--accent-primary)]/60 shadow-[0_0_8px_var(--accent-glow)]'
+                : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border-[var(--border-color)]'
             }`}
           >
             <span>Export</span>
-            <ChevronUp className={`w-3 h-3 text-[#a8a49c] transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180 text-[#d4af37]' : ''}`} />
+            <ChevronUp className={`w-3 h-3 text-[var(--text-secondary)] transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180 text-[var(--accent-primary)]' : ''}`} />
           </button>
 
           {isExportMenuOpen && (
-            <div className="absolute bottom-full mb-2 right-0 w-52 bg-[#181714] border border-[#38352d] rounded-xl shadow-2xl overflow-hidden z-50 p-1 space-y-0.5">
-              <div className="px-2.5 py-1.5 border-b border-[#24221e] text-[10px] font-semibold text-[#8c887e] uppercase tracking-wider flex items-center justify-between">
+            <div className="absolute bottom-full mb-2 right-0 w-52 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden z-50 p-1 space-y-0.5">
+              <div className="px-2.5 py-1.5 border-b border-[var(--border-color-subtle)] text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
                 <span>Export Project</span>
-                <Download className="w-3 h-3 text-[#d4af37]" />
+                <Download className="w-3 h-3 text-[var(--accent-primary)]" />
               </div>
 
               <button
@@ -262,14 +262,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setIsExportMenuOpen(false);
                   onExportPdf();
                 }}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#24221e] text-xs text-[#f4f2ec] transition-colors rounded-lg group"
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-primary)] transition-colors rounded-lg group"
               >
-                <div className="p-1 rounded bg-[#24221e] group-hover:bg-[#2e2c26] text-[#d4af37]">
+                <div className="p-1 rounded bg-[var(--bg-secondary)] group-hover:bg-[var(--bg-surface)] text-[var(--accent-primary)]">
                   <FileText className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <div className="font-semibold text-[11px] text-[#f4f2ec] group-hover:text-[#d4af37]">Export as PDF</div>
-                  <div className="text-[10px] text-[#78746c]">Compiled document (.pdf)</div>
+                  <div className="font-semibold text-[11px] text-[var(--text-primary)] group-hover:text-[var(--accent-primary)]">Export as PDF</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">Compiled document (.pdf)</div>
                 </div>
               </button>
 
@@ -278,14 +278,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setIsExportMenuOpen(false);
                   onExportZip();
                 }}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[#24221e] text-xs text-[#f4f2ec] transition-colors rounded-lg group"
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-[var(--bg-surface-hover)] text-xs text-[var(--text-primary)] transition-colors rounded-lg group"
               >
-                <div className="p-1 rounded bg-[#24221e] group-hover:bg-[#2e2c26] text-blue-400">
+                <div className="p-1 rounded bg-[var(--bg-secondary)] group-hover:bg-[var(--bg-surface)] text-blue-400">
                   <Archive className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <div className="font-semibold text-[11px] text-[#f4f2ec] group-hover:text-blue-400">Export as ZIP</div>
-                  <div className="text-[10px] text-[#78746c]">Full project archive (.zip)</div>
+                  <div className="font-semibold text-[11px] text-[var(--text-primary)] group-hover:text-blue-400">Export as ZIP</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">Full project archive (.zip)</div>
                 </div>
               </button>
             </div>

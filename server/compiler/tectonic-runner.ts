@@ -84,12 +84,12 @@ export class TectonicRunner {
           projectDir,
         ];
       } else {
-        // Use pdflatex
+        // Use pdflatex with non-blocking package installer
         command = 'pdflatex';
         args = [
           '-synctex=1',
           '-interaction=nonstopmode',
-          '-halt-on-error',
+          '-enable-installer',
           mainTexFile,
         ];
       }
@@ -145,17 +145,31 @@ export class TectonicRunner {
       });
 
       child.on('close', async (code) => {
-        const durationMs = Date.now() - startTime;
         let combinedLog = stdout + '\n' + stderr;
 
         const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
         const auxFile = path.resolve(projectDir, `${baseName}.aux`);
 
+        // Auto-heal: If pdfTeX fails due to scalable fonts requirement (T1 fontenc + microtype on MiKTeX), auto-inject lmodern
+        if (!fs.existsSync(pdfPath) && combinedLog.includes('auto expansion is only possible with scalable fonts')) {
+          try {
+            const rawTex = fs.readFileSync(fullMainPath, 'utf-8');
+            if (!rawTex.includes('{lmodern}')) {
+              const healedTex = rawTex.replace(/(\\usepackage(?:\[[^\]]*\])?\{fontenc\})/, '$1\n\\usepackage{lmodern}');
+              if (healedTex !== rawTex) {
+                fs.writeFileSync(fullMainPath, healedTex, 'utf-8');
+                const healResult = spawnSync(command, args, { cwd: projectDir, encoding: 'utf-8' });
+                combinedLog = (healResult.stdout || '') + '\n' + (healResult.stderr || '');
+              }
+            }
+          } catch (_) {}
+        }
+
         // Run BibTeX and multi-pass for full citations if pdflatex was used
         if (this.engineType === 'pdflatex' && fs.existsSync(auxFile)) {
           try {
             spawnSync('bibtex', [baseName], { cwd: projectDir, stdio: 'ignore' });
-            spawnSync('pdflatex', ['-synctex=1', '-interaction=nonstopmode', '-halt-on-error', mainTexFile], { cwd: projectDir, stdio: 'ignore' });
+            spawnSync('pdflatex', ['-synctex=1', '-interaction=nonstopmode', '-enable-installer', mainTexFile], { cwd: projectDir, stdio: 'ignore' });
           } catch (_) {}
         }
 
@@ -178,7 +192,7 @@ export class TectonicRunner {
           synctexPath,
           diagnostics,
           stdout: combinedLog,
-          durationMs,
+          durationMs: Date.now() - startTime,
         });
       });
     });

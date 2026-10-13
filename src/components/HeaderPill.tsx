@@ -86,7 +86,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   ];
 
   return (
-    <header className="h-10 bg-[#141311] border-b border-[#24221e] px-3 flex items-center justify-between select-none relative z-30 font-sans">
+    <header className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-3 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)]">
       {/* Window Controls & Qwen AI Shortcut */}
       <div className="flex items-center gap-2 w-1/4">
         <div className="flex items-center gap-1.5 pl-1">
@@ -98,10 +98,10 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
         {onOpenQwenAssistant && (
           <button
             onClick={onOpenQwenAssistant}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#242016] hover:bg-[#302a1b] text-[#d4af37] border border-[#d4af37]/40 text-[10px] font-mono transition-colors shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/40 text-[10px] font-mono transition-colors shadow-sm"
             title="Open Qwen 2.5 Coder Fast-Edit & Diagnostics (Ctrl+K)"
           >
-            <Sparkles className="w-3 h-3 text-[#d4af37]" />
+            <Sparkles className="w-3 h-3 text-[var(--accent-primary)]" />
             <span>Qwen 2.5</span>
           </button>
         )}
@@ -109,16 +109,22 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
       {/* Floating Center Pill */}
       <div className="flex items-center justify-center">
-        <div className="flex items-center bg-[#1e1d1a]/95 backdrop-blur-md px-3.5 py-1 rounded-full border border-[#33302a] shadow-2xl text-[11px] text-[#a8a49c] gap-2.5">
+        <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-3.5 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-2.5">
           {/* Compile Status & Trigger */}
           <div className="flex items-center gap-1.5 font-mono text-[10px]">
-            <span className="text-[#8c887e]">[LocTex • v1.4</span>
-            <span className="text-[#4a4740]">|</span>
-            <span className="text-[#c7c3b8]">Status:</span>
-            <span className="text-[#f4f2ec] font-semibold flex items-center gap-1">
-              {compileStatus === 'compiling' ? 'Compiling...' : 'Ready'}
+            <span className="text-[var(--text-muted)]">[LocTex • v1.4</span>
+            <span className="text-[var(--border-color-subtle)]">|</span>
+            <span className="text-[var(--text-secondary)]">Status:</span>
+            <span className="text-[var(--text-primary)] font-semibold flex items-center gap-1">
+              {compileStatus === 'compiling'
+                ? 'Compiling...'
+                : compileStatus === 'error'
+                ? 'Failed'
+                : compileStatus === 'idle'
+                ? 'Idle'
+                : 'Ready'}
               {compileDurationMs !== undefined && compileDurationMs > 0 && compileStatus === 'ready' && (
-                <span className="text-[9px] text-emerald-400 font-mono">
+                <span className="text-[9px] text-emerald-500 font-mono">
                   ({(compileDurationMs / 1000).toFixed(1)}s)
                 </span>
               )}
@@ -128,42 +134,44 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
                     ? 'bg-amber-400 animate-ping'
                     : compileStatus === 'error'
                     ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]'
+                    : compileStatus === 'idle'
+                    ? 'bg-neutral-500'
                     : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]'
                 }`}
               />
             </span>
             <button
               onClick={onCompile}
-              className="p-0.5 hover:text-[#d4af37] text-[#8c887e] transition-colors"
+              className="p-0.5 hover:text-[var(--accent-primary)] text-[var(--text-muted)] transition-colors"
               title="Compile (Ctrl+Enter / Cmd+Enter / Ctrl+S)"
             >
               <RotateCw className={`w-3 h-3 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
             </button>
-            <span className="text-[#8c887e]">]</span>
+            <span className="text-[var(--text-muted)]">]</span>
           </div>
 
-          <span className="text-[#4a4740]">•</span>
+          <span className="text-[var(--border-color-subtle)]">•</span>
 
           {/* Zoom Controls & Fit Width */}
           <div className="flex items-center gap-1 font-mono text-[10px]">
             <button
               onClick={() => onZoomChange(Math.max(40, zoom - 10))}
-              className="p-0.5 hover:text-[#f4f2ec] text-[#8c887e]"
+              className="p-0.5 hover:text-[var(--text-primary)] text-[var(--text-muted)]"
               title="Zoom Out"
             >
               <ZoomOut className="w-3 h-3" />
             </button>
-            <span className="text-[#f4f2ec] font-semibold w-8 text-center">{zoom}%</span>
+            <span className="text-[var(--text-primary)] font-semibold w-8 text-center">{zoom}%</span>
             <button
               onClick={() => onZoomChange(Math.min(200, zoom + 10))}
-              className="p-0.5 hover:text-[#f4f2ec] text-[#8c887e]"
+              className="p-0.5 hover:text-[var(--text-primary)] text-[var(--text-muted)]"
               title="Zoom In"
             >
               <ZoomIn className="w-3 h-3" />
             </button>
             <button
               onClick={onFitWidth}
-              className="ml-1 px-1.5 py-0.5 rounded bg-[#2a2824] hover:bg-[#383530] text-[9px] text-[#f4f2ec] border border-[#3d3a33] flex items-center gap-1"
+              className="ml-1 px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[9px] text-[var(--text-primary)] border border-[var(--border-color-subtle)] flex items-center gap-1"
               title="Fit to Width"
             >
               <Maximize2 className="w-2.5 h-2.5" />
@@ -171,21 +179,21 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
             </button>
           </div>
 
-          <span className="text-[#4a4740]">•</span>
+          <span className="text-[var(--border-color-subtle)]">•</span>
 
           {/* Academic Typography: Font Dropdown */}
           <div className="relative">
             <button
               onClick={() => setFontMenuOpen(!fontMenuOpen)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#2a2824] hover:bg-[#383530] text-[#f4f2ec] border border-[#3d3a33] transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors"
             >
               <span>{fontFamily}</span>
-              <ChevronDown className="w-2.5 h-2.5 text-[#8c887e]" />
+              <ChevronDown className="w-2.5 h-2.5 text-[var(--text-muted)]" />
             </button>
 
             {fontMenuOpen && (
-              <div className="absolute top-full mt-1.5 left-0 w-52 bg-[#1e1d1a] border border-[#3d3a33] rounded-lg shadow-2xl py-1 z-50">
-                <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-[#8c887e] font-semibold">
+              <div className="absolute top-full mt-1.5 left-0 w-52 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50">
+                <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">
                   Academic Fonts
                 </div>
                 {academicFonts.map((f) => (
@@ -195,12 +203,12 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
                       onFontFamilyChange(f.name);
                       setFontMenuOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-1.5 hover:bg-[#2a2824] text-[11px] flex items-center justify-between ${
-                      fontFamily === f.name ? 'text-[#d4af37] font-semibold' : 'text-[#f4f2ec]'
+                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center justify-between ${
+                      fontFamily === f.name ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
                     }`}
                   >
                     <span className={f.previewClass}>{f.name}</span>
-                    {fontFamily === f.name && <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]" />}
+                    {fontFamily === f.name && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />}
                   </button>
                 ))}
               </div>
@@ -208,11 +216,11 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           </div>
 
           {/* Style Buttons: B, I, U */}
-          <div className="flex items-center bg-[#2a2824] rounded border border-[#3d3a33] overflow-hidden">
+          <div className="flex items-center bg-[var(--bg-secondary)] rounded border border-[var(--border-color-subtle)] overflow-hidden">
             <button
               onClick={onToggleBold}
               className={`px-1.5 py-0.5 font-serif font-bold text-[11px] transition-colors ${
-                isBold ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
+                isBold ? 'bg-[var(--accent-primary)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
               title="Bold (\textbf)"
             >
@@ -220,8 +228,8 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
             </button>
             <button
               onClick={onToggleItalic}
-              className={`px-1.5 py-0.5 font-serif italic text-[11px] border-l border-[#3d3a33] transition-colors ${
-                isItalic ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
+              className={`px-1.5 py-0.5 font-serif italic text-[11px] border-l border-[var(--border-color-subtle)] transition-colors ${
+                isItalic ? 'bg-[var(--accent-primary)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
               title="Italic (\textit)"
             >
@@ -229,8 +237,8 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
             </button>
             <button
               onClick={onToggleUnderline}
-              className={`px-1.5 py-0.5 font-serif underline text-[11px] border-l border-[#3d3a33] transition-colors ${
-                isUnderline ? 'bg-[#d4af37] text-black' : 'text-[#a8a49c] hover:text-[#f4f2ec]'
+              className={`px-1.5 py-0.5 font-serif underline text-[11px] border-l border-[var(--border-color-subtle)] transition-colors ${
+                isUnderline ? 'bg-[var(--accent-primary)] text-[var(--bg-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
               title="Underline (\underline)"
             >
@@ -242,7 +250,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           <select
             value={fontSize}
             onChange={(e) => onFontSizeChange(e.target.value)}
-            className="bg-[#2a2824] text-[#f4f2ec] rounded px-1.5 py-0.5 text-[10px] font-mono border border-[#3d3a33] focus:outline-none cursor-pointer"
+            className="bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded px-1.5 py-0.5 text-[10px] font-mono border border-[var(--border-color-subtle)] focus:outline-none cursor-pointer"
           >
             <option value="10pt">10pt</option>
             <option value="11pt">11pt</option>
@@ -253,7 +261,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
       {/* Right Title & Theme Switcher */}
       <div className="flex items-center justify-end gap-2.5 w-1/4">
-        <span className="text-[11px] text-[#78746c] truncate">
+        <span className="text-[11px] text-[var(--text-muted)] truncate">
           LocTex - {activeFileName} ({projectName})
         </span>
 
@@ -261,7 +269,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
         <div className="relative">
           <button
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-            className="p-1 rounded-full hover:bg-[#24221e] transition-colors"
+            className="p-1 rounded-full hover:bg-[var(--bg-surface-hover)] transition-colors"
             title="Switch Theme"
           >
             <span
@@ -271,7 +279,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           </button>
 
           {themeMenuOpen && (
-            <div className="absolute top-full mt-1 right-0 w-36 bg-[#1e1d1a] border border-[#3d3a33] rounded-lg shadow-2xl py-1 z-50">
+            <div className="absolute top-full mt-1 right-0 w-36 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50">
               {themes.map((t) => (
                 <button
                   key={t.name}
@@ -279,8 +287,8 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
                     onThemeChange(t.name);
                     setThemeMenuOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-1 hover:bg-[#2a2824] text-[11px] flex items-center gap-2 ${
-                    theme === t.name ? 'text-[#d4af37] font-semibold' : 'text-[#f4f2ec]'
+                  className={`w-full text-left px-3 py-1 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center gap-2 ${
+                    theme === t.name ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.dotColor }} />

@@ -74,6 +74,11 @@ export default function App() {
   // Apply theme class to document body
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'sepia') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
   }, [theme]);
 
   // Load projects on mount
@@ -84,7 +89,7 @@ export default function App() {
       if (data.projects && data.projects.length > 0) {
         setProjects(data.projects);
         if (!activeProject) {
-          selectProject(data.projects[0]);
+          selectProject(data.projects[0], true);
         }
       } else {
         const createRes = await fetch('/api/projects', {
@@ -94,7 +99,7 @@ export default function App() {
         });
         const newProj = await createRes.json();
         setProjects([newProj]);
-        selectProject(newProj);
+        selectProject(newProj, true);
       }
     } catch (e) {
       console.error('Failed to load projects from server:', e);
@@ -105,8 +110,31 @@ export default function App() {
     loadProjects();
   }, []);
 
+  // Save & Compile implementation supporting explicit targets
+  const triggerCompileForProject = async (projectId: string, targetFile: string, contentToSave: string) => {
+    setCompileStatus('compiling');
+    try {
+      const res = await fetch(`/api/projects/${projectId}/compile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: contentToSave, activeFile: targetFile }),
+      });
+      const result = await res.json();
+      setCompileStatus(result.success ? 'ready' : 'error');
+      setDiagnostics(result.diagnostics || []);
+      if (result.durationMs !== undefined) {
+        setCompileDurationMs(result.durationMs);
+      }
+      if (result.success) {
+        setPdfVersion(Date.now());
+      }
+    } catch (e) {
+      setCompileStatus('error');
+    }
+  };
+
   // Select project & load files
-  const selectProject = async (project: Project) => {
+  const selectProject = async (project: Project, autoCompile = true) => {
     setActiveProject(project);
     setCurrentView('studio');
     setPdfVersion(Date.now());
@@ -121,18 +149,23 @@ export default function App() {
       setActiveFile(targetFile);
       const fileRes = await fetch(`/api/projects/${project.id}/file?path=${encodeURIComponent(targetFile)}`);
       const fileData = await fileRes.json();
-      if (fileData.content) {
-        setFileContent(fileData.content);
-      }
+      const content = fileData.content || '';
+      setFileContent(content);
 
       const snapRes = await fetch(`/api/projects/${project.id}/snapshots`);
       const snapData = await snapRes.json();
       if (snapData.snapshots) {
         setSnapshots(snapData.snapshots);
       }
-      setCompileStatus('ready');
+
+      if (autoCompile) {
+        triggerCompileForProject(project.id, targetFile, content);
+      } else {
+        setCompileStatus('ready');
+      }
     } catch (e) {
       console.error('Failed to load project details:', e);
+      setCompileStatus('error');
     }
   };
 
@@ -159,25 +192,7 @@ export default function App() {
   // Save & Compile
   const triggerCompile = async (contentToSave = fileContent) => {
     if (!activeProject) return;
-    setCompileStatus('compiling');
-    try {
-      const res = await fetch(`/api/projects/${activeProject.id}/compile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: contentToSave, activeFile }),
-      });
-      const result = await res.json();
-      setCompileStatus(result.success ? 'ready' : 'error');
-      setDiagnostics(result.diagnostics || []);
-      if (result.durationMs !== undefined) {
-        setCompileDurationMs(result.durationMs);
-      }
-      if (result.success) {
-        setPdfVersion(Date.now());
-      }
-    } catch (e) {
-      setCompileStatus('error');
-    }
+    return triggerCompileForProject(activeProject.id, activeFile, contentToSave);
   };
 
   // Automated Quick-Fix Handler
@@ -434,6 +449,7 @@ export default function App() {
 
   const handleImportZip = async (projectName: string, base64Zip: string) => {
     try {
+      setCompileStatus('compiling');
       const res = await fetch('/api/projects/import-zip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -441,20 +457,22 @@ export default function App() {
       });
       const data = await res.json();
       if (data.id) {
+        const targetActiveFile = data.active_file || data.mainFile || 'main.tex';
         const newProj: Project = {
           id: data.id,
           name: data.name,
           root_path: data.root_path,
-          active_file: data.mainFile || 'main.tex',
+          active_file: targetActiveFile,
           settings: { theme, fontFamily, fontSize },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         setProjects((prev) => [newProj, ...prev]);
-        selectProject(newProj);
+        await selectProject(newProj, true);
       }
     } catch (e) {
       console.error(e);
+      setCompileStatus('error');
     }
   };
 

@@ -166,16 +166,35 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 select-none font-sans">
-      <div className="w-full max-w-3xl bg-[#141311] border border-[#33302a] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div 
+        className="w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border"
+        style={{ 
+          backgroundColor: 'var(--bg-card)', 
+          borderColor: 'var(--border-color)' 
+        }}
+      >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 bg-[#100f0d] border-b border-[#262420] flex items-center justify-between">
+        <div 
+          className="px-5 py-3.5 border-b flex items-center justify-between"
+          style={{ 
+            backgroundColor: 'var(--bg-secondary)', 
+            borderColor: 'var(--border-color)' 
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37]">
+            <div 
+              className="w-8 h-8 rounded-xl flex items-center justify-center border"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--accent-color) 15%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--accent-color) 40%, transparent)',
+                color: 'var(--accent-color)',
+              }}
+            >
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-[#f4f2ec]">
+                <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
                   Qwen 2.5 Coder — Fast-Edit & LaTeX Repair Engine
                 </h2>
                 <span
@@ -190,7 +209,7 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
                     : 'Local Heuristic Fallback Ready'}
                 </span>
               </div>
-              <p className="text-[11px] text-[#8c887e]">
+              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                 Atomic Search/Replace diff engine for sub-second LaTeX edits without full-file rewrites.
               </p>
             </div>
@@ -199,14 +218,20 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={fetchStatus}
-              className="p-1.5 rounded-lg bg-[#1e1d1a] hover:bg-[#2a2824] text-[#a8a49c] hover:text-[#f4f2ec] border border-[#33302a] transition-colors"
+              className="p-1.5 rounded-lg border transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                borderColor: 'var(--border-color)',
+                color: 'var(--text-secondary)',
+              }}
               title="Refresh Ollama connection"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-[#262420] text-[#8c887e] hover:text-[#f4f2ec]"
+              className="p-1.5 rounded-lg hover:opacity-80"
+              style={{ color: 'var(--text-secondary)' }}
             >
               <X className="w-4 h-4" />
             </button>
@@ -218,19 +243,26 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
           {/* 1. Model Selection & Hardware Specs Grid */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#a8a49c]">
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                 Select Qwen 2.5 Coder Model Tier
               </span>
-              <div className="flex items-center gap-2 bg-[#1a1916] px-2.5 py-1 rounded-lg border border-[#2e2c26] font-mono text-[10px]">
-                <Terminal className="w-3 h-3 text-[#d4af37]" />
-                <span className="text-[#dedbd2]">ollama run {selectedModel}</span>
+              <div 
+                className="flex items-center gap-2 px-2.5 py-1 rounded-lg border font-mono text-[10px]"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-color)',
+                }}
+              >
+                <Terminal className="w-3 h-3" style={{ color: 'var(--accent-color)' }} />
+                <span style={{ color: 'var(--text-primary)' }}>ollama run {selectedModel}</span>
                 <button
                   onClick={handleCopyInstallCmd}
-                  className="text-[#8c887e] hover:text-[#d4af37] ml-1"
+                  className="hover:opacity-80 ml-1"
+                  style={{ color: 'var(--text-secondary)' }}
                   title="Copy Ollama command"
                 >
                   {copiedCmd ? (
-                    <Check className="w-3 h-3 text-emerald-400" />
+                    <Check className="w-3 h-3 text-emerald-500" />
                   ) : (
                     <Copy className="w-3 h-3" />
                   )}
@@ -245,30 +277,34 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
                   <div
                     key={m.id}
                     onClick={() => handleSelectModel(m.id)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2 ${
-                      isSelected
-                        ? 'bg-[#1f1d18] border-[#d4af37] shadow-lg'
-                        : 'bg-[#181714] border-[#262420] hover:border-[#3d3a33]'
-                    }`}
+                    className="p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-2"
+                    style={{
+                      backgroundColor: isSelected ? 'var(--bg-secondary)' : 'var(--bg-primary)',
+                      borderColor: isSelected ? 'var(--accent-color)' : 'var(--border-color)',
+                      boxShadow: isSelected ? '0 0 10px rgba(0,0,0,0.2)' : 'none',
+                    }}
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-[#f4f2ec] text-xs">{m.name}</span>
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" />}
+                        <span className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />}
                       </div>
-                      <p className="text-[10px] text-[#8c887e] leading-relaxed">{m.description}</p>
+                      <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{m.description}</p>
                     </div>
 
-                    <div className="pt-2 border-t border-[#262420] grid grid-cols-2 gap-1.5 font-mono text-[10px]">
-                      <div className="flex items-center gap-1 text-[#c7c3b8]">
-                        <Cpu className="w-3 h-3 text-[#d4af37]" />
+                    <div 
+                      className="pt-2 border-t grid grid-cols-2 gap-1.5 font-mono text-[10px]"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                        <Cpu className="w-3 h-3" style={{ color: 'var(--accent-color)' }} />
                         <span>{m.parameters}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[#c7c3b8]">
-                        <HardDrive className="w-3 h-3 text-sky-400" />
+                      <div className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                        <HardDrive className="w-3 h-3 text-sky-500" />
                         <span>{m.vramGb}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-emerald-400 col-span-2">
+                      <div className="flex items-center gap-1 text-emerald-500 col-span-2">
                         <Zap className="w-3 h-3" />
                         <span>{m.speedTokSec} • {m.quantization}</span>
                       </div>
@@ -279,13 +315,19 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
             </div>
 
             {/* Active Model Detailed Spec Strip */}
-            <div className="bg-[#181714] border border-[#262420] rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-              <div className="flex items-center gap-2 text-[#dedbd2]">
-                <Layers className="w-3.5 h-3.5 text-[#d4af37]" />
+            <div 
+              className="border rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-color)',
+              }}
+            >
+              <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Layers className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
                 <span>Active Tag:</span>
-                <strong className="text-[#d4af37]">{currentSpec.id}</strong>
+                <strong style={{ color: 'var(--accent-color)' }}>{currentSpec.id}</strong>
               </div>
-              <div className="flex items-center gap-4 text-[#8c887e]">
+              <div className="flex items-center gap-4" style={{ color: 'var(--text-secondary)' }}>
                 <span>Context: {currentSpec.contextWindow}</span>
                 <span>Protocol: Search/Replace Diff</span>
               </div>
@@ -293,8 +335,11 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
           </div>
 
           {/* 2. Fast-Edit Instruction Input */}
-          <div className="space-y-2.5 pt-2 border-t border-[#24221e]">
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#a8a49c]">
+          <div 
+            className="space-y-2.5 pt-2 border-t"
+            style={{ borderColor: 'var(--border-color)' }}
+          >
+            <label className="block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
               Fast-Edit Instruction (Ctrl+K)
             </label>
 
@@ -307,7 +352,12 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
                     setInstruction(preset);
                     handleRunFastEdit(preset);
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-[#1c1b18] hover:bg-[#282621] text-[#c7c3b8] hover:text-[#d4af37] border border-[#2e2c26] text-[10px] transition-colors"
+                  className="px-2.5 py-1 rounded-lg border text-[10px] transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--text-primary)',
+                  }}
                 >
                   {preset}
                 </button>
@@ -323,12 +373,21 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
                   if (e.key === 'Enter') handleRunFastEdit();
                 }}
                 placeholder="e.g., Convert this list into a 3-column booktabs table or wrap in align environment..."
-                className="flex-1 bg-[#0e0d0b] border border-[#33302a] focus:border-[#d4af37] rounded-xl px-3.5 py-2 text-xs text-[#f4f2ec] focus:outline-none"
+                className="flex-1 rounded-xl px-3.5 py-2 text-xs focus:outline-none border"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
               />
               <button
                 onClick={() => handleRunFastEdit()}
                 disabled={isGenerating || !instruction.trim()}
-                className="px-4 py-2 rounded-xl bg-[#d4af37] hover:bg-[#e5c158] disabled:opacity-50 text-black font-semibold text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                className="px-4 py-2 rounded-xl disabled:opacity-50 font-semibold text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                style={{
+                  backgroundColor: 'var(--accent-color)',
+                  color: '#000000',
+                }}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{isGenerating ? 'Synthesizing...' : 'Generate Patch'}</span>
@@ -342,40 +401,51 @@ export const QwenAssistantModal: React.FC<QwenAssistantModalProps> = ({
                 value={selectedSnippet}
                 onChange={(e) => setSelectedSnippet(e.target.value)}
                 placeholder="Optional: paste exact LaTeX line/snippet to target (leave blank to target active line)"
-                className="w-full bg-[#100f0d] border border-[#262420] rounded-lg px-3 py-1.5 text-[11px] font-mono text-[#a8a49c] focus:outline-none focus:border-[#3d3a33]"
+                className="w-full rounded-lg px-3 py-1.5 text-[11px] font-mono focus:outline-none border"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-secondary)',
+                }}
               />
             </div>
           </div>
 
           {/* 3. Search / Replace Diff Preview */}
           {patchResult && (
-            <div className="space-y-2.5 bg-[#100f0d] border border-[#33302a] rounded-xl p-3.5">
+            <div 
+              className="space-y-2.5 border rounded-xl p-3.5"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-color)',
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-[#f4f2ec]">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {patchResult.explanation}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                <span className="text-[10px] font-mono text-emerald-500 bg-emerald-950/20 px-2 py-0.5 rounded border border-emerald-800/40">
                   {patchResult.modelUsed} • {patchResult.latencyMs}ms
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 font-mono text-[11px]">
                 <div className="bg-rose-950/20 border border-rose-900/40 rounded-lg p-2.5 overflow-x-auto">
-                  <div className="text-[9px] uppercase text-rose-400 font-bold mb-1">
+                  <div className="text-[9px] uppercase text-rose-500 font-bold mb-1">
                     - SEARCH (Original)
                   </div>
-                  <pre className="text-rose-200 whitespace-pre-wrap">
+                  <pre className="text-rose-600 dark:text-rose-200 whitespace-pre-wrap">
                     {patchResult.search || '(Top of file)'}
                   </pre>
                 </div>
 
                 <div className="bg-emerald-950/20 border border-emerald-900/40 rounded-lg p-2.5 overflow-x-auto">
-                  <div className="text-[9px] uppercase text-emerald-400 font-bold mb-1">
+                  <div className="text-[9px] uppercase text-emerald-500 font-bold mb-1">
                     + REPLACE (Patched)
                   </div>
-                  <pre className="text-emerald-200 whitespace-pre-wrap">{patchResult.replace}</pre>
+                  <pre className="text-emerald-700 dark:text-emerald-200 whitespace-pre-wrap">{patchResult.replace}</pre>
                 </div>
               </div>
 

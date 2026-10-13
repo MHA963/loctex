@@ -55,7 +55,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="m-2 px-3 py-1 rounded-md bg-[#1e1d1a]/95 backdrop-blur-md border border-[#33302a] text-[11px] text-[#a8a49c] hover:text-[#f4f2ec] hover:bg-[#262420] shadow-xl flex items-center gap-2 transition-all hover:border-[#d4af37]/40"
+          className="m-2 px-3 py-1 rounded-md bg-[var(--bg-surface)]/95 backdrop-blur-md border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] shadow-xl flex items-center gap-2 transition-all hover:border-[var(--accent-primary)]/40"
         >
           <span className="flex items-center gap-1.5">
             <span
@@ -70,19 +70,19 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
 
       {/* Expanded Diagnostic Drawer */}
       {isOpen && (
-        <div className="w-[580px] max-h-96 bg-[#181714]/98 backdrop-blur-2xl border border-[#3d3a33] rounded-tl-2xl shadow-2xl flex flex-col overflow-hidden m-0">
+        <div className="w-[580px] max-h-96 bg-[var(--bg-surface)]/98 backdrop-blur-2xl border border-[var(--border-color)] rounded-tl-2xl shadow-2xl flex flex-col overflow-hidden m-0">
           {/* Header */}
-          <div className="px-4 py-2 border-b border-[#2e2c26] flex items-center justify-between bg-[#12110f] text-xs">
+          <div className="px-4 py-2 border-b border-[var(--border-color-subtle)] flex items-center justify-between bg-[var(--bg-secondary)] text-xs">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-[#f4f2ec]">LaTeX Compiler Diagnostics</span>
+              <span className="font-semibold text-[var(--text-primary)]">LaTeX Compiler Diagnostics</span>
               {/* Filter Tabs */}
-              <div className="flex items-center bg-[#1e1d1a] rounded-lg border border-[#33302a] p-0.5 text-[10px]">
+              <div className="flex items-center bg-[var(--bg-surface)] rounded-lg border border-[var(--border-color-subtle)] p-0.5 text-[10px]">
                 <button
                   onClick={() => setActiveFilter('all')}
                   className={`px-2 py-0.5 rounded transition-colors ${
                     activeFilter === 'all'
-                      ? 'bg-[#2d2a23] text-[#d4af37] font-semibold'
-                      : 'text-[#8c887e] hover:text-[#f4f2ec]'
+                      ? 'bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] font-semibold'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   All ({diagnostics.length})
@@ -92,7 +92,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                   className={`px-2 py-0.5 rounded transition-colors ${
                     activeFilter === 'errors'
                       ? 'bg-rose-950/60 text-rose-300 font-semibold'
-                      : 'text-[#8c887e] hover:text-[#f4f2ec]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   Errors ({errors.length})
@@ -102,7 +102,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                   className={`px-2 py-0.5 rounded transition-colors ${
                     activeFilter === 'warnings'
                       ? 'bg-amber-950/60 text-amber-300 font-semibold'
-                      : 'text-[#8c887e] hover:text-[#f4f2ec]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   Warnings ({warnings.length})
@@ -112,7 +112,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
 
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 rounded hover:bg-[#262420] text-[#8c887e] hover:text-[#f4f2ec] transition-colors"
+              className="p-1 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               title="Close Drawer"
             >
               <ChevronDown className="w-4 h-4" />
@@ -122,8 +122,8 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
           {/* Diagnostics List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5 text-xs">
             {filteredItems.length === 0 ? (
-              <div className="py-6 text-center text-[#78746c] italic text-[11px] space-y-1">
-                <div className="text-emerald-400 font-medium">✓ Zero compilation defects reported.</div>
+              <div className="py-6 text-center text-[var(--text-muted)] italic text-[11px] space-y-1">
+                <div className="text-emerald-500 font-medium">✓ Zero compilation defects reported.</div>
                 <div>All cross-references and syntax passes verified clean.</div>
               </div>
             ) : (
@@ -141,31 +141,31 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 overflow-hidden">
                       {item.severity === 'error' ? (
-                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                       ) : (
-                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                       )}
                       <div>
-                        <div className="font-mono text-[11px] font-semibold text-[#f4f2ec]">
-                          <span className="text-[#a8a49c]">{item.file}:</span> Line {item.line}
+                        <div className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
+                          <span className="text-[var(--text-secondary)]">{item.file}:</span> Line {item.line}
                         </div>
-                        <p className="text-xs text-[#dedbd2] mt-0.5 leading-snug">{item.message}</p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-snug">{item.message}</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={(e) => handleCopy(item, e)}
-                        className="p-1 rounded hover:bg-[#262420] text-[#8c887e] hover:text-[#f4f2ec]"
+                        className="p-1 rounded hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                         title="Copy diagnostic details"
                       >
                         {copiedId === item.id ? (
-                          <Check className="w-3 h-3 text-emerald-400" />
+                          <Check className="w-3 h-3 text-emerald-500" />
                         ) : (
                           <Copy className="w-3 h-3" />
                         )}
                       </button>
-                      <div className="flex items-center gap-1 text-[10px] text-[#d4af37] group-hover:underline">
+                      <div className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] group-hover:underline">
                         <span>Jump</span>
                         <ExternalLink className="w-3 h-3" />
                       </div>
@@ -174,16 +174,16 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
 
                   {/* Excerpt Snippet */}
                   {item.excerpt && (
-                    <div className="bg-[#100f0d] border border-[#262420] rounded-lg px-2.5 py-1 font-mono text-[11px] text-[#e5c158] overflow-x-auto">
+                    <div className="bg-[var(--bg-primary)] border border-[var(--border-color-subtle)] rounded-lg px-2.5 py-1 font-mono text-[11px] text-[var(--accent-primary)] overflow-x-auto">
                       <code>{item.excerpt}</code>
                     </div>
                   )}
 
                   {/* Smart Fixing Suggestion, Quick Fix & Qwen 2.5 Coder Repair */}
                   {(item.suggestion || onAiFixDiagnostic) && (
-                    <div className="bg-[#1e1c18] border border-[#3a352a] rounded-lg p-2 flex items-start justify-between gap-2 text-[11px]">
-                      <div className="flex items-start gap-1.5 text-[#dcd7cb]">
-                        <Lightbulb className="w-3.5 h-3.5 text-[#d4af37] shrink-0 mt-0.5" />
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color-subtle)] rounded-lg p-2 flex items-start justify-between gap-2 text-[11px]">
+                      <div className="flex items-start gap-1.5 text-[var(--text-secondary)]">
+                        <Lightbulb className="w-3.5 h-3.5 text-[var(--accent-primary)] shrink-0 mt-0.5" />
                         <span>
                           {item.suggestion ||
                             'Use Qwen 2.5 Coder to automatically diagnose and patch this LaTeX issue.'}
@@ -197,7 +197,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                               e.stopPropagation();
                               onApplyQuickFix(item);
                             }}
-                            className="px-2.5 py-1 rounded bg-[#d4af37] hover:bg-[#e5c158] text-black font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors shadow-sm"
+                            className="px-2.5 py-1 rounded bg-[var(--accent-primary)] hover:brightness-110 text-[var(--bg-primary)] font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors shadow-sm"
                             title={item.quickFix.label}
                           >
                             <Wrench className="w-3 h-3" />
@@ -217,7 +217,7 @@ export const DiagnosticDrawer: React.FC<DiagnosticDrawerProps> = ({
                               }
                             }}
                             disabled={fixingId === item.id}
-                            className="px-2.5 py-1 rounded bg-[#262218] hover:bg-[#342e1f] text-[#d4af37] border border-[#d4af37]/40 font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 rounded bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/40 font-semibold text-[10px] shrink-0 flex items-center gap-1 transition-colors"
                             title="Repair this error using Qwen 2.5 Coder Search/Replace patch"
                           >
                             <Sparkles className="w-3 h-3" />

@@ -244,7 +244,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
     };
 
     return (
-      <div className="flex-1 h-full bg-[#11100e] relative overflow-hidden flex flex-col">
+      <div className="flex-1 h-full bg-[var(--bg-primary)] relative overflow-hidden flex flex-col">
         {/* Scrollable PDF Pages Container */}
         <div
           ref={containerRef}
@@ -252,27 +252,50 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
           className="flex-1 overflow-auto flex flex-col items-center py-6 px-4 gap-6 select-none"
         >
           {isLoading && (
-            <div className="flex-1 flex flex-col items-center justify-center text-[#8c887e] gap-3">
-              <RotateCw className="w-6 h-6 animate-spin text-[#d4af37]" />
-              <span className="text-xs font-mono">Rendering high-resolution vector PDF...</span>
+            <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] gap-3">
+              <RotateCw className="w-6 h-6 animate-spin text-[var(--accent-primary)]" />
+              <span className="text-xs font-mono text-[var(--text-secondary)]">Rendering high-resolution vector PDF...</span>
             </div>
           )}
 
           {!isLoading && error && (
-            <div className="flex-1 flex flex-col items-center justify-center text-[#8c887e] gap-3 p-6 text-center max-w-md">
-              <FileText className="w-10 h-10 text-[#57534e]" />
-              <div className="text-sm font-semibold text-[#f4f2ec]">PDF Preview Ready to Compile</div>
-              <p className="text-xs text-[#8c887e] leading-relaxed">
-                Save your changes or click compile to generate the high-resolution vector PDF preview.
-              </p>
-              {onCompile && (
-                <button
-                  onClick={onCompile}
-                  className="mt-2 px-3 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#c49f27] text-black font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-amber-900/20 cursor-pointer"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  Compile Document
-                </button>
+            <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] gap-3 p-6 text-center max-w-md">
+              {compileStatus === 'error' ? (
+                <>
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mb-1">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-semibold text-[var(--text-primary)]">LaTeX Compilation Failed</div>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    The compiler encountered syntax or package errors. Use the diagnostic drawer below or press recompile to try again.
+                  </p>
+                  {onCompile && (
+                    <button
+                      onClick={onCompile}
+                      className="mt-2 px-3.5 py-1.5 rounded-lg bg-[var(--accent-primary)] hover:brightness-110 text-[var(--bg-primary)] font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-lg cursor-pointer"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      Recompile Document
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FileText className="w-10 h-10 text-[var(--text-muted)]" />
+                  <div className="text-sm font-semibold text-[var(--text-primary)]">PDF Preview Ready to Compile</div>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Save your changes or click compile to generate the high-resolution vector PDF preview.
+                  </p>
+                  {onCompile && (
+                    <button
+                      onClick={onCompile}
+                      className="mt-2 px-3.5 py-1.5 rounded-lg bg-[var(--accent-primary)] hover:brightness-110 text-[var(--bg-primary)] font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-lg cursor-pointer"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      Compile Document
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -284,7 +307,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                 return (
                   <div
                     key={pageNum}
-                    className="relative group bg-[#fdfbf7] shadow-2xl rounded-sm transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+                    className="relative group bg-[#fdfbf7] shadow-2xl rounded-sm transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                   >
                     <canvas
                       ref={(el) => {
@@ -313,7 +336,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                     </div>
 
                     {/* Subtle Page Number Badge */}
-                    <div className="absolute -top-3 right-2 bg-[#1e1d1a]/90 backdrop-blur border border-[#3d3a33] text-[9px] font-mono text-[#8c887e] px-1.5 py-0.5 rounded shadow">
+                    <div className="absolute -top-3 right-2 bg-[var(--bg-surface)]/90 backdrop-blur border border-[var(--border-color-subtle)] text-[9px] font-mono text-[var(--text-muted)] px-1.5 py-0.5 rounded shadow">
                       Page {pageNum} of {numPages}
                     </div>
                   </div>
@@ -326,11 +349,11 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
         {/* Floating Bottom Navigation Pill (Matching the Prism Reference Design) */}
         {!isLoading && !error && numPages > 0 && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
-            <div className="flex items-center bg-[#181714]/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-[#33302a] shadow-2xl text-[11px] text-[#a8a49c] gap-2 select-none">
+            <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-2 select-none">
               {/* Recompile / Reload */}
               <button
                 onClick={onCompile}
-                className="p-1 hover:text-[#d4af37] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                className="p-1 hover:text-[var(--accent-primary)] text-[var(--text-muted)] transition-colors rounded-full hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                 title="Recompile (Ctrl+S)"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${compileStatus === 'compiling' ? 'animate-spin' : ''}`} />
@@ -342,34 +365,34 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                     scrollToPage(currentPage);
                   }
                 }}
-                className="p-1 hover:text-[#d4af37] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                className="p-1 hover:text-[var(--accent-primary)] text-[var(--text-muted)] transition-colors rounded-full hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                 title="Refresh View"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
 
-              <span className="text-[#3d3a33]">|</span>
+              <span className="text-[var(--border-color-subtle)]">|</span>
 
               {/* Prev Page */}
               <button
                 disabled={currentPage <= 1}
                 onClick={() => scrollToPage(currentPage - 1)}
-                className="p-1 hover:text-[#f4f2ec] disabled:text-[#3d3a33] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                className="p-1 hover:text-[var(--text-primary)] disabled:text-[var(--text-muted)]/40 text-[var(--text-muted)] transition-colors rounded-full hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                 title="Previous Page"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
 
               {/* Page Indicator / Go to PDF */}
-              <span className="text-[10px] font-mono text-[#f4f2ec] px-1">
-                Go to PDF <span className="text-[#8c887e]">({currentPage}/{numPages})</span>
+              <span className="text-[10px] font-mono text-[var(--text-primary)] px-1">
+                Go to PDF <span className="text-[var(--text-muted)]">({currentPage}/{numPages})</span>
               </span>
 
               {/* Next Page */}
               <button
                 disabled={currentPage >= numPages}
                 onClick={() => scrollToPage(currentPage + 1)}
-                className="p-1 hover:text-[#f4f2ec] disabled:text-[#3d3a33] text-[#8c887e] transition-colors rounded-full hover:bg-[#24221e] cursor-pointer"
+                className="p-1 hover:text-[var(--text-primary)] disabled:text-[var(--text-muted)]/40 text-[var(--text-muted)] transition-colors rounded-full hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                 title="Next Page"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
