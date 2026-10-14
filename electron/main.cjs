@@ -134,6 +134,12 @@ function createWindow() {
     ? process.env.VITE_DEV_SERVER_URL
     : `http://${HOST}:${PORT}`;
 
+  mainWindow.webContents.on('did-fail-load', () => {
+    setTimeout(() => {
+      if (mainWindow) mainWindow.loadURL(appUrl);
+    }, 500);
+  });
+
   mainWindow.loadURL(appUrl);
 
   mainWindow.once('ready-to-show', () => {
