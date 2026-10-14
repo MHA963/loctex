@@ -86,13 +86,28 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   ];
 
   return (
-    <header className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-3 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)]">
+    <header 
+      className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-3 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)]"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
       {/* Window Controls & Qwen AI Shortcut */}
-      <div className="flex items-center gap-2 w-1/4">
+      <div className="flex items-center gap-2 w-1/4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="flex items-center gap-1.5 pl-1">
-          <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm" />
-          <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm" />
-          <span className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm" />
+          <button
+            onClick={() => window.electronAPI?.close()}
+            className="w-3 h-3 rounded-full bg-[#ff5f56] hover:brightness-110 active:brightness-90 border border-[#e0443e] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
+            title="Close Window"
+          />
+          <button
+            onClick={() => window.electronAPI?.minimize()}
+            className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:brightness-110 active:brightness-90 border border-[#dea123] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
+            title="Minimize Window"
+          />
+          <button
+            onClick={() => window.electronAPI?.maximize()}
+            className="w-3 h-3 rounded-full bg-[#27c93f] hover:brightness-110 active:brightness-90 border border-[#1aab29] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
+            title="Maximize / Restore Window"
+          />
         </div>
 
         {onOpenQwenAssistant && (
@@ -108,7 +123,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
       </div>
 
       {/* Floating Center Pill */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-3.5 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-2.5">
           {/* Compile Status & Trigger */}
           <div className="flex items-center gap-1.5 font-mono text-[10px]">
@@ -260,7 +275,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
       </div>
 
       {/* Right Title & Theme Switcher */}
-      <div className="flex items-center justify-end gap-2.5 w-1/4">
+      <div className="flex items-center justify-end gap-2.5 w-1/4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <span className="text-[11px] text-[var(--text-muted)] truncate">
           LocTex - {activeFileName} ({projectName})
         </span>
