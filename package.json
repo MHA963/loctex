@@ -6,14 +6,16 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build:client": "tsc && vite build",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=dist-server/index.mjs",
+    "build": "npm run build:client && npm run build:server",
     "preview": "vite preview",
     "server": "tsx server/index.ts",
     "start": "tsx server/index.ts",
     "test": "vitest run",
-    "electron:dev": "vite build && electron .",
-    "electron:pack": "electron-builder --dir",
-    "dist:win": "tsc && vite build && electron-builder --win"
+    "electron:dev": "npm run build && electron .",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",

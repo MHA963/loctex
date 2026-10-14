@@ -67,27 +67,37 @@ function startBackendServer() {
     NODE_ENV: isDev ? 'development' : 'production',
   };
 
-  if (isDev) {
-    // In local dev, spawn via tsx
-    serverProcess = spawn(
-      process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      ['tsx', path.join(projectRoot, 'server', 'index.ts')],
-      {
-        cwd: projectRoot,
-        env: serverEnv,
-        stdio: 'inherit',
-        shell: true,
-      }
-    );
+  const compiledServer = path.join(projectRoot, 'dist-server', 'index.mjs');
+
+  if (fs.existsSync(compiledServer)) {
+    // Launch compiled Node server without shell splitting or loader path bugs
+    serverProcess = spawn('node', [compiledServer], {
+      cwd: projectRoot,
+      env: serverEnv,
+      stdio: 'inherit',
+      shell: false,
+    });
   } else {
-    // In production build, execute compiled server bundle
-    const prodServerEntry = path.join(projectRoot, 'server.bundle.cjs');
-    if (fs.existsSync(prodServerEntry)) {
-      serverProcess = spawn(process.execPath, [prodServerEntry], {
+    // Direct tsx CLI fallback
+    const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+    if (fs.existsSync(tsxCli)) {
+      serverProcess = spawn('node', [tsxCli, 'server/index.ts'], {
         cwd: projectRoot,
         env: serverEnv,
         stdio: 'inherit',
+        shell: false,
       });
+    } else {
+      serverProcess = spawn(
+        process.platform === 'win32' ? 'npx.cmd' : 'npx',
+        ['tsx', 'server/index.ts'],
+        {
+          cwd: projectRoot,
+          env: serverEnv,
+          stdio: 'inherit',
+          shell: true,
+        }
+      );
     }
   }
 
