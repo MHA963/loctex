@@ -1,23 +1,40 @@
-node_modules
-dist
-dist-server
-dist-ssr
-release
+# Dependencies
+node_modules/
+
+# Production & Desktop Distribution Builds
+dist/
+dist-server/
+dist-ssr/
+release/
+
+# User Data & Storage (Local TeX projects and SQLite state)
+loctex_data/
+
+# Environment & Local Overrides
 *.local
-loctex_data
+.env
+.env.*
+
+# Logs & Diagnostics
 *.log
-.DS_Store
-*.synctex.gz
+npm-debug.log*
+
+# LaTeX Compiler Auxiliary Artifacts
 *.aux
-*.pdf
-*.fls
+*.bbl
+*.blg
 *.fdb_latexmk
+*.fls
+*.nav
+*.out
+*.pdf
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
 
-# Autonomous Agent Swarm & ASP System (Local only)
-.agents/
-.agents
-asp/
-*.agent.md
-HOW_TO_USE_IN_ANY_PROJECT.md
-ARCHITECTURE_DIAGRAMS.md
-
+# OS & Editor Metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
