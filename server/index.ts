@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import fastifyStatic from '@fastify/static';
 import path from 'path';
 import fs from 'fs';
 import { LocTexDatabase } from './db/database.ts';
@@ -11,23 +12,30 @@ import { OllamaQwenService } from './services/ollama-service.ts';
 import { AIDiagnosticFixRequest, AIFastEditRequest, QwenModelId } from '../src/types/index.ts';
 
 const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
-const db = new LocTexDatabase();
-const compiler = new TectonicRunner();
-const aiService = new OllamaQwenService();
 
-const LOCTEX_DATA_DIR = path.resolve(process.cwd(), 'loctex_data');
+const LOCTEX_DATA_DIR = process.env.LOCTEX_DATA_DIR || path.resolve(process.cwd(), 'loctex_data');
 const PROJECTS_DIR = path.resolve(LOCTEX_DATA_DIR, 'projects');
 
 if (!fs.existsSync(PROJECTS_DIR)) {
   fs.mkdirSync(PROJECTS_DIR, { recursive: true });
 }
 
+const db = new LocTexDatabase(path.resolve(LOCTEX_DATA_DIR, 'loctex.db'));
+const compiler = new TectonicRunner();
+const aiService = new OllamaQwenService();
+
 await fastify.register(cors, { origin: true });
 await fastify.register(websocket);
 
 // Health check
 fastify.get('/api/health', async () => {
-  return { status: 'healthy', timestamp: new Date().toISOString(), app: 'LocTex' };
+  return { 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(), 
+    app: 'LocTex',
+    dataDir: LOCTEX_DATA_DIR,
+    production: process.env.NODE_ENV === 'production'
+  };
 });
 
 // --- Projects API ---
@@ -585,12 +593,43 @@ fastify.post('/api/ai/fast-edit', async (request, reply) => {
   return await aiService.fastEdit(body);
 });
 
-const PORT = 4173;
-fastify.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
-  if (err) {
-    console.error(err);
-    process.exit(1);
+// --- Static Asset Serving (Production & Packaged Desktop Bundle) ---
+const DIST_DIR = process.env.LOCTEX_DIST_DIR || path.resolve(process.cwd(), 'dist');
+if (fs.existsSync(DIST_DIR)) {
+  await fastify.register(fastifyStatic, {
+    root: DIST_DIR,
+    prefix: '/',
+  });
+
+  fastify.setNotFoundHandler(async (request, reply) => {
+    if (request.raw.url && request.raw.url.startsWith('/api')) {
+      return reply.status(404).send({ error: 'API route not found' });
+    }
+    return reply.sendFile('index.html');
+  });
+}
+
+const PORT = parseInt(process.env.PORT || '4173', 10);
+const HOST = process.env.HOST || '0.0.0.0';
+
+export async function startServer(port = PORT, host = HOST) {
+  try {
+    const address = await fastify.listen({ port, host });
+    console.log(`⚡ LocTex Engine Server listening on ${address}`);
+    return { fastify, address, port };
+  } catch (err) {
+    fastify.log.error(err);
+    throw err;
   }
-  console.log(`⚡ LocTex Engine Server listening on ${address}`);
-});
+}
+
+export { fastify, db, LOCTEX_DATA_DIR, PROJECTS_DIR };
+
+// Standalone execution (when run directly via tsx/node)
+if (process.env.NODE_ENV !== 'test' && !process.env.LOCTEX_EMBEDDED) {
+  startServer().catch((err) => {
+    console.error('Fatal server startup error:', err);
+    process.exit(1);
+  });
+}
 
