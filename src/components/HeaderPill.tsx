@@ -10,6 +10,9 @@ import {
   ZoomIn,
   ZoomOut,
   Sparkles,
+  X,
+  Minus,
+  Square,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
 
@@ -92,22 +95,28 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
     >
       {/* Window Controls & Qwen AI Shortcut */}
       <div className="flex items-center gap-2 w-1/4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="flex items-center gap-1.5 pl-1">
+        <div className="flex items-center gap-1.5 pl-1 group/traffic">
           <button
             onClick={() => window.electronAPI?.close()}
-            className="w-3 h-3 rounded-full bg-[#ff5f56] hover:brightness-110 active:brightness-90 border border-[#e0443e] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
-            title="Close Window"
-          />
+            className="w-3.5 h-3.5 rounded-full bg-[#ff5f56] hover:bg-[#e0443e] border border-[#e0443e] flex items-center justify-center shadow-sm cursor-pointer transition-all hover:scale-110 text-[#4c0000] opacity-85 hover:opacity-100"
+            title="Close Window (Alt+F4)"
+          >
+            <X className="w-2.5 h-2.5 stroke-[3]" />
+          </button>
           <button
             onClick={() => window.electronAPI?.minimize()}
-            className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:brightness-110 active:brightness-90 border border-[#dea123] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
+            className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e] hover:bg-[#dea123] border border-[#dea123] flex items-center justify-center shadow-sm cursor-pointer transition-all hover:scale-110 text-[#593900] opacity-85 hover:opacity-100"
             title="Minimize Window"
-          />
+          >
+            <Minus className="w-2.5 h-2.5 stroke-[3]" />
+          </button>
           <button
             onClick={() => window.electronAPI?.maximize()}
-            className="w-3 h-3 rounded-full bg-[#27c93f] hover:brightness-110 active:brightness-90 border border-[#1aab29] inline-block shadow-sm cursor-pointer transition-transform hover:scale-105"
+            className="w-3.5 h-3.5 rounded-full bg-[#27c93f] hover:bg-[#1aab29] border border-[#1aab29] flex items-center justify-center shadow-sm cursor-pointer transition-all hover:scale-110 text-[#003d13] opacity-85 hover:opacity-100"
             title="Maximize / Restore Window"
-          />
+          >
+            <Square className="w-2 h-2 stroke-[3]" />
+          </button>
         </div>
 
         {onOpenQwenAssistant && (

@@ -10,9 +10,33 @@ let serverProcess = null;
 const PORT = process.env.PORT || 4173;
 const HOST = '127.0.0.1';
 
-// Setup userData storage isolation
-const userDataDir = app.getPath('userData');
-const loctexDataDir = path.join(userDataDir, 'loctex_data');
+// Setup data directory: in dev, directly reuse workspace loctex_data so all browser projects are available
+const isDev = !app.isPackaged;
+const workspaceDataDir = path.resolve(__dirname, '..', 'loctex_data');
+let loctexDataDir;
+
+if (isDev) {
+  // In development, directly read and write to the existing workspace loctex_data
+  loctexDataDir = process.env.LOCTEX_DATA_DIR || workspaceDataDir;
+} else {
+  // In packaged installer (.exe), write to %APPDATA%/LocTex/loctex_data
+  const userDataDir = app.getPath('userData');
+  loctexDataDir = process.env.LOCTEX_DATA_DIR || path.join(userDataDir, 'loctex_data');
+
+  // Automatic one-time migration: if appData has no db yet but workspace data exists, copy it over
+  if (
+    !fs.existsSync(path.join(loctexDataDir, 'loctex.db')) &&
+    fs.existsSync(path.join(workspaceDataDir, 'loctex.db'))
+  ) {
+    try {
+      fs.cpSync(workspaceDataDir, loctexDataDir, { recursive: true });
+      console.log('⚡ Migrated existing projects from browser workspace to desktop AppData.');
+    } catch (e) {
+      console.warn('Migration warning:', e.message);
+    }
+  }
+}
+
 if (!fs.existsSync(loctexDataDir)) {
   fs.mkdirSync(loctexDataDir, { recursive: true });
 }
