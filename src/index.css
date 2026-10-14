@@ -6,9 +6,11 @@
     --bg-secondary: #141311;
     --bg-surface: #1c1b18;
     --bg-surface-hover: #262420;
+    --bg-card: var(--bg-surface);
     --border-color: rgba(212, 175, 55, 0.22);
     --border-color-subtle: rgba(255, 255, 255, 0.08);
     --accent-primary: #d4af37;
+    --accent-color: var(--accent-primary);
     --accent-glow: rgba(212, 175, 55, 0.25);
     --text-primary: #f4f2ec;
     --text-secondary: #a8a49c;
