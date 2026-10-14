@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.loctex.desktop",
+  "productName": "LocTex",
+  "copyright": "Copyright © 2026 LocTex",
+  "directories": {
+    "output": "release",
+    "buildResources": "resources"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "server/**/*",
+    "resources/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/favicon.ico",
+    "artifactName": "${productName}-${version}-${target}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "LocTex",
+    "uninstallDisplayName": "LocTex LaTeX Studio"
+  },
+  "portable": {
+    "artifactName": "LocTex-${version}-Portable.${ext}"
+  },
+  "asar": true,
+  "asarUnpack": [
+    "**/server/**",
+    "**/node_modules/sqlite3/**"
+  ]
+}
