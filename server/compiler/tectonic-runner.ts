@@ -20,6 +20,21 @@ export class TectonicRunner {
     this.detectEngine();
   }
 
+  /**
+   * Injects non-destructive TeX line-breaking and margin boundary limits into the preamble
+   * so long words, inline code, URLs, and figures do not overflow page margins (Overfull \hbox).
+   */
+  public static ensurePageBoundaryLimits(rawTex: string): string {
+    if (!rawTex.includes('\\documentclass') || rawTex.includes('\\emergencystretch')) {
+      return rawTex;
+    }
+    const boundaryGuard = '\\emergencystretch=3em\\tolerance=1000\\hbadness=10000';
+    if (rawTex.includes('\\begin{document}')) {
+      return rawTex.replace('\\begin{document}', `${boundaryGuard}\n\\begin{document}`);
+    }
+    return rawTex;
+  }
+
   private detectEngine(): 'tectonic' | 'pdflatex' | 'unknown' {
     try {
       execSync('tectonic --version', { stdio: 'ignore' });
@@ -144,13 +159,13 @@ export class TectonicRunner {
         });
       });
 
-      child.on('close', async (code) => {
+      child.on('close', async () => {
         let combinedLog = stdout + '\n' + stderr;
 
         const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
         const auxFile = path.resolve(projectDir, `${baseName}.aux`);
 
-        // Auto-heal: If pdfTeX fails due to scalable fonts requirement (T1 fontenc + microtype on MiKTeX), auto-inject lmodern
+        // Auto-heal 1: If pdfTeX fails due to scalable fonts requirement (T1 fontenc + microtype on MiKTeX), auto-inject lmodern
         if (!fs.existsSync(pdfPath) && combinedLog.includes('auto expansion is only possible with scalable fonts')) {
           try {
             const rawTex = fs.readFileSync(fullMainPath, 'utf-8');
@@ -161,6 +176,19 @@ export class TectonicRunner {
                 const healResult = spawnSync(command, args, { cwd: projectDir, encoding: 'utf-8' });
                 combinedLog = (healResult.stdout || '') + '\n' + (healResult.stderr || '');
               }
+            }
+          } catch (_) {}
+        }
+
+        // Auto-heal 2: If compiled log shows Overfull \hbox (text block spilling outside page boundaries), inject boundary guard & recompile
+        if (/Overfull \\hbox \([0-9.]+pt too wide\)/.test(combinedLog)) {
+          try {
+            const rawTex = fs.readFileSync(fullMainPath, 'utf-8');
+            const boundedTex = TectonicRunner.ensurePageBoundaryLimits(rawTex);
+            if (boundedTex !== rawTex) {
+              fs.writeFileSync(fullMainPath, boundedTex, 'utf-8');
+              const healResult = spawnSync(command, args, { cwd: projectDir, encoding: 'utf-8' });
+              combinedLog = (healResult.stdout || '') + '\n' + (healResult.stderr || '');
             }
           } catch (_) {}
         }
