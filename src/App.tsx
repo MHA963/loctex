@@ -89,7 +89,7 @@ export default function App() {
       if (data.projects && data.projects.length > 0) {
         setProjects(data.projects);
         if (!activeProject) {
-          selectProject(data.projects[0], true);
+          selectProject(data.projects[0], false);
         }
       } else {
         const createRes = await fetch('/api/projects', {
@@ -99,7 +99,7 @@ export default function App() {
         });
         const newProj = await createRes.json();
         setProjects([newProj]);
-        selectProject(newProj, true);
+        selectProject(newProj, false);
       }
     } catch (e) {
       console.error('Failed to load projects from server:', e);
@@ -133,8 +133,8 @@ export default function App() {
     }
   };
 
-  // Select project & load files
-  const selectProject = async (project: Project, autoCompile = true) => {
+  // Select project & load files (no auto-compile by default; compile only on user action or Ctrl+S)
+  const selectProject = async (project: Project, autoCompile = false) => {
     setActiveProject(project);
     setCurrentView('studio');
     setPdfVersion(Date.now());
@@ -272,7 +272,7 @@ export default function App() {
     }
   };
 
-  // Debounced auto-save & compile on editor content change
+  // Debounced background file save on editor content change (does NOT auto-compile; compile is user-triggered or Ctrl+S)
   useEffect(() => {
     if (!activeProject || !fileContent) return;
     const timer = setTimeout(() => {
@@ -280,18 +280,16 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: activeFile, content: fileContent }),
-      }).then(() => {
-        triggerCompile(fileContent);
-      });
+      }).catch((err) => console.error('Failed to auto-save file:', err));
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [fileContent]);
+  }, [fileContent, activeProject, activeFile]);
 
-  // Global Shortcuts: Ctrl+S, Ctrl+Enter / Cmd+Enter, and Ctrl+K (Qwen Fast-Edit)
+  // Global Shortcuts: Ctrl+S, Ctrl+Enter / Cmd+Enter (Save & Compile), and Ctrl+K (Qwen Fast-Edit)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'Enter')) {
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key === 'Enter')) {
         e.preventDefault();
         triggerCompile();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -301,7 +299,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fileContent, activeProject]);
+  }, [fileContent, activeProject, activeFile]);
 
   // Split-Pane Mouse Dragging Handlers
   const handleMouseDownSplit = () => {
