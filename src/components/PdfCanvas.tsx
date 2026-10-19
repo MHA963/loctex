@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } f
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { RotateCcw, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { CompileStatus, FontFamily, SyncTeXBox } from '../types/index.ts';
+import { CompileStatus } from '../types/index.ts';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -26,15 +26,67 @@ interface PdfCanvasProps {
   onZoomChange: (newZoom: number) => void;
   compileStatus: CompileStatus;
   onCompile?: () => void;
-  fontFamily?: FontFamily;
   texContent?: string;
-  synctexBoxes?: SyncTeXBox[];
   onJumpToSource: (line: number) => void;
+}
+
+export function matchPdfTextToTexLine(textStr: string, texContent: string): number {
+  const cleanTarget = textStr.trim();
+  if (!cleanTarget || cleanTarget.length < 2 || !texContent) return -1;
+
+  const lines = texContent.split('\n');
+
+  // Helper to strip common LaTeX inline formatting commands so PDF text matches raw source
+  const stripInlineLatex = (line: string): string =>
+    line
+      .replace(/\\(?:textbf|textit|underline|texttt|emph|textrm|textsf|section\*?|subsection\*?|subsubsection\*?|title|author|caption)\{([^}]*)\}/g, '$1')
+      .replace(/\\[a-zA-Z]+\*?/g, ' ')
+      .replace(/[{}~]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // 1. Exact substring match in raw source
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(cleanTarget)) {
+      return i + 1;
+    }
+  }
+
+  // 2. Match against macro-stripped source line
+  const normalizedTarget = cleanTarget.replace(/\s+/g, ' ');
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = stripInlineLatex(lines[i]);
+    if (stripped && stripped.toLowerCase().includes(normalizedTarget.toLowerCase())) {
+      return i + 1;
+    }
+  }
+
+  // 3. Multi-word token score match (handles hyphenation or LaTeX macros splitting words)
+  const words = cleanTarget
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter((w) => w.length > 3);
+
+  if (words.length > 0) {
+    let bestLine = -1;
+    let bestScore = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('%')) continue;
+      const score = words.filter((word) => lines[i].toLowerCase().includes(word.toLowerCase())).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = i + 1;
+      }
+    }
+    if (bestLine > 0) return bestLine;
+  }
+
+  return -1;
 }
 
 export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
   (
-    { projectId, pdfVersion, zoom, onZoomChange, compileStatus, onCompile, texContent = '', synctexBoxes = [], onJumpToSource },
+    { projectId, pdfVersion, zoom, onZoomChange, compileStatus, onCompile, texContent = '', onJumpToSource },
     ref
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -183,33 +235,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
 
     // Handle clicking text on PDF to jump to LaTeX source code
     const handleTextClick = (textStr: string) => {
-      const cleanTarget = textStr.trim();
-      if (!cleanTarget || cleanTarget.length < 2 || !texContent) return;
-
-      const lines = texContent.split('\n');
-      let matchedLine = -1;
-
-      // 1. Exact substring match
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(cleanTarget)) {
-          matchedLine = i + 1;
-          break;
-        }
-      }
-
-      // 2. Word-based match if exact phrase not found (handles LaTeX commands stripped by PDF engine)
-      if (matchedLine === -1) {
-        const words = cleanTarget.split(/\s+/).filter((w) => w.length > 3);
-        if (words.length > 0) {
-          for (let i = 0; i < lines.length; i++) {
-            if (words.some((word) => lines[i].includes(word))) {
-              matchedLine = i + 1;
-              break;
-            }
-          }
-        }
-      }
-
+      const matchedLine = matchPdfTextToTexLine(textStr, texContent);
       if (matchedLine > 0) {
         onJumpToSource(matchedLine);
       }

@@ -16,7 +16,6 @@ import {
   FontFamily,
   JournalEntry,
   Project,
-  SyncTeXBox,
   ThemeName,
   VersionSnapshot,
   WorkspaceMode,
@@ -60,7 +59,6 @@ export default function App() {
   const [pdfVersion, setPdfVersion] = useState<number>(Date.now());
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
   const [diagnostics, setDiagnostics] = useState<DiagnosticError[]>([]);
-  const [synctexBoxes, setSynctexBoxes] = useState<SyncTeXBox[]>([]);
 
   // Journals State
   const [journals, setJournals] = useState<JournalEntry[]>([]);
@@ -362,17 +360,6 @@ export default function App() {
     }
   };
 
-  // Direct In-PDF Edit Handler
-  const handleDirectPdfEdit = (newText: string, targetLine: number) => {
-    const lines = fileContent.split('\n');
-    if (targetLine <= lines.length) {
-      lines[targetLine - 1] = newText;
-      const updated = lines.join('\n');
-      setFileContent(updated);
-      triggerCompile(updated);
-    }
-  };
-
   // File CRUD
   const handleCreateNewFile = async () => {
     if (!activeProject) return;
@@ -618,9 +605,7 @@ export default function App() {
               onZoomChange={setZoom}
               compileStatus={compileStatus}
               onCompile={() => triggerCompile()}
-              fontFamily={fontFamily}
               texContent={fileContent}
-              synctexBoxes={synctexBoxes}
               onJumpToSource={(line) => {
                 setActiveLine(line);
                 editorRef.current?.jumpToLine(line);
