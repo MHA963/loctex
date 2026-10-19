@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileCode,
+  Image as ImageIcon,
   LayoutGrid,
   FilePlus,
   FolderPlus,
@@ -72,8 +73,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[var(--accent-primary)]" />;
-    if (fileName.endsWith('.bib')) return <FileCode className="w-3.5 h-3.5 text-blue-400" />;
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.tex')) return <FileText className="w-3.5 h-3.5 text-[var(--accent-primary)]" />;
+    if (lower.endsWith('.bib')) return <FileCode className="w-3.5 h-3.5 text-blue-400" />;
+    if (lower.endsWith('.svg')) return <FileCode className="w-3.5 h-3.5 text-amber-400" />;
+    if (lower.endsWith('.pdf')) return <FileText className="w-3.5 h-3.5 text-rose-400" />;
+    if (/\.(png|jpg|jpeg|gif|webp|ico|bmp)$/.test(lower)) {
+      return <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />;
+    }
     return <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />;
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HeaderPill } from './components/HeaderPill.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
+import { AssetPreviewPane, isPreviewableAsset } from './components/AssetPreviewPane.tsx';
 import { PdfCanvas, PdfCanvasRef } from './components/PdfCanvas.tsx';
 import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
@@ -55,6 +56,8 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [activeFile, setActiveFile] = useState('main.tex');
+  const [lastTexFile, setLastTexFile] = useState('main.tex');
+  const [svgCodeMode, setSvgCodeMode] = useState(false);
   const [fileContent, setFileContent] = useState('');
   const [pdfVersion, setPdfVersion] = useState<number>(Date.now());
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
@@ -145,6 +148,8 @@ export default function App() {
 
       const targetFile = project.active_file || 'main.tex';
       setActiveFile(targetFile);
+      setLastTexFile(targetFile);
+      setSvgCodeMode(false);
       const fileRes = await fetch(`/api/projects/${project.id}/file?path=${encodeURIComponent(targetFile)}`);
       const fileData = await fileRes.json();
       const content = fileData.content || '';
@@ -167,15 +172,26 @@ export default function App() {
     }
   };
 
-  // Switch active file
+  // Switch active file (supports .tex, .bib, and previewable assets: images, .pdf, .svg)
   const handleSelectFile = async (filePath: string) => {
     if (!activeProject) return;
-    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
-    const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.zip', '.gz', '.ico'];
-    if (binaryExtensions.includes(ext)) {
+    const ext = filePath.includes('.') ? filePath.slice(filePath.lastIndexOf('.')).toLowerCase() : '';
+    if (ext === '.zip' || ext === '.gz') {
       return;
     }
+
     setActiveFile(filePath);
+    setSvgCodeMode(false);
+
+    if (ext === '.tex') {
+      setLastTexFile(filePath);
+    }
+
+    // Binary previewable assets (.png, .jpg, .jpeg, .gif, .webp, .pdf, .ico, .bmp) are streamed directly by AssetPreviewPane
+    if (isPreviewableAsset(filePath) && ext !== '.svg') {
+      return;
+    }
+
     try {
       const res = await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
@@ -187,10 +203,11 @@ export default function App() {
     }
   };
 
-  // Save & Compile
+  // Save & Compile (always compiles the active .tex file even if an image/asset is currently previewed)
   const triggerCompile = async (contentToSave = fileContent) => {
     if (!activeProject) return;
-    return triggerCompileForProject(activeProject.id, activeFile, contentToSave);
+    const targetTex = activeFile.endsWith('.tex') ? activeFile : lastTexFile || 'main.tex';
+    return triggerCompileForProject(activeProject.id, targetTex, contentToSave);
   };
 
   // Automated Quick-Fix Handler
@@ -223,15 +240,16 @@ export default function App() {
       const lineIdx = diagnostic.line - 1;
       if (lineIdx >= 0 && lineIdx < lines.length) {
         lines[lineIdx] = `$${lines[lineIdx].trim()}$`;
-        newContent = lines.join('\n');
       }
+      newContent = lines.join('\n');
     }
 
     setFileContent(newContent);
+    const targetTex = activeFile.endsWith('.tex') ? activeFile : lastTexFile || 'main.tex';
     await fetch(`/api/projects/${activeProject.id}/file`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: activeFile, content: newContent }),
+      body: JSON.stringify({ path: targetTex, content: newContent }),
     });
     triggerCompile(newContent);
   };
@@ -240,10 +258,11 @@ export default function App() {
   const handleApplyPatchedContent = async (patchedContent: string) => {
     if (!activeProject) return;
     setFileContent(patchedContent);
+    const targetTex = activeFile.endsWith('.tex') ? activeFile : lastTexFile || 'main.tex';
     await fetch(`/api/projects/${activeProject.id}/file`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: activeFile, content: patchedContent }),
+      body: JSON.stringify({ path: targetTex, content: patchedContent }),
     });
     triggerCompile(patchedContent);
   };
@@ -270,9 +289,10 @@ export default function App() {
     }
   };
 
-  // Debounced background file save on editor content change (does NOT auto-compile; compile is user-triggered or Ctrl+S)
+  // Debounced background file save on editor content change (does NOT auto-compile; skips binary assets)
   useEffect(() => {
     if (!activeProject || !fileContent) return;
+    if (isPreviewableAsset(activeFile) && !svgCodeMode) return;
     const timer = setTimeout(() => {
       fetch(`/api/projects/${activeProject.id}/file`, {
         method: 'POST',
@@ -282,7 +302,7 @@ export default function App() {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [fileContent, activeProject, activeFile]);
+  }, [fileContent, activeProject, activeFile, svgCodeMode]);
 
   // Global Shortcuts: Ctrl+S, Ctrl+Enter / Cmd+Enter (Save & Compile), and Ctrl+K (Qwen Fast-Edit)
   useEffect(() => {
@@ -574,16 +594,30 @@ export default function App() {
             onRenameFile={handleRenameFile}
           />
 
-          {/* Center LaTeX Code Editor Pane (Adjustable Width) */}
+          {/* Center LaTeX Code Editor or Asset Preview Pane (Adjustable Width) */}
           <div style={{ width: `${editorWidthPercent}%` }} className="h-full flex flex-col">
-            <EditorPane
-              ref={editorRef}
-              content={fileContent}
-              onChange={setFileContent}
-              diagnostics={diagnostics}
-              activeLine={activeLine}
-              onCompile={() => triggerCompile()}
-            />
+            {activeProject && isPreviewableAsset(activeFile) && !svgCodeMode ? (
+              <AssetPreviewPane
+                projectId={activeProject.id}
+                filePath={activeFile}
+                svgSourceContent={fileContent}
+                onEditSvgSource={
+                  activeFile.toLowerCase().endsWith('.svg')
+                    ? () => setSvgCodeMode(true)
+                    : undefined
+                }
+                onBackToTex={() => handleSelectFile(lastTexFile || 'main.tex')}
+              />
+            ) : (
+              <EditorPane
+                ref={editorRef}
+                content={fileContent}
+                onChange={setFileContent}
+                diagnostics={diagnostics}
+                activeLine={activeLine}
+                onCompile={() => triggerCompile()}
+              />
+            )}
           </div>
 
           {/* Draggable Horizontal Splitter Bar */}
@@ -607,8 +641,12 @@ export default function App() {
               onCompile={() => triggerCompile()}
               texContent={fileContent}
               onJumpToSource={(line) => {
+                if (isPreviewableAsset(activeFile)) {
+                  setActiveFile(lastTexFile || 'main.tex');
+                  setSvgCodeMode(false);
+                }
                 setActiveLine(line);
-                editorRef.current?.jumpToLine(line);
+                setTimeout(() => editorRef.current?.jumpToLine(line), 20);
               }}
             />
           </div>
@@ -617,8 +655,12 @@ export default function App() {
           <DiagnosticDrawer
             diagnostics={diagnostics}
             onJumpToLine={(line) => {
+              if (isPreviewableAsset(activeFile)) {
+                setActiveFile(lastTexFile || 'main.tex');
+                setSvgCodeMode(false);
+              }
               setActiveLine(line);
-              editorRef.current?.jumpToLine(line);
+              setTimeout(() => editorRef.current?.jumpToLine(line), 20);
             }}
             onApplyQuickFix={handleApplyQuickFix}
             onAiFixDiagnostic={handleAiFixDiagnostic}
