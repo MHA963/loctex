@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } f
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { RotateCcw, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { CompileStatus, FontFamily, SyncTeXBox } from '../types/index.ts';
+import { CompileStatus } from '../types/index.ts';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -26,15 +26,100 @@ interface PdfCanvasProps {
   onZoomChange: (newZoom: number) => void;
   compileStatus: CompileStatus;
   onCompile?: () => void;
-  fontFamily?: FontFamily;
   texContent?: string;
-  synctexBoxes?: SyncTeXBox[];
   onJumpToSource: (line: number) => void;
+}
+
+export function matchPdfTextToTexLine(textStr: string, texContent: string): number {
+  const cleanTarget = textStr.trim();
+  if (!cleanTarget || cleanTarget.length < 2 || !texContent) return -1;
+
+  const lines = texContent.split('\n');
+
+  // Helper to strip common LaTeX inline formatting commands so PDF text matches raw source
+  const stripInlineLatex = (line: string): string =>
+    line
+      .replace(/\\(?:textbf|textit|underline|texttt|emph|textrm|textsf|section\*?|subsection\*?|subsubsection\*?|title|author|caption)\{([^}]*)\}/g, '$1')
+      .replace(/\\[a-zA-Z]+\*?/g, ' ')
+      .replace(/[{}~]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // 1. Exact substring match in raw source
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(cleanTarget)) {
+      return i + 1;
+    }
+  }
+
+  // 2. Match against macro-stripped source line
+  const normalizedTarget = cleanTarget.replace(/\s+/g, ' ');
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = stripInlineLatex(lines[i]);
+    if (stripped && stripped.toLowerCase().includes(normalizedTarget.toLowerCase())) {
+      return i + 1;
+    }
+  }
+
+  // 3. Multi-word token score match (handles hyphenation or LaTeX macros splitting words)
+  const words = cleanTarget
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter((w) => w.length > 3);
+
+  if (words.length > 0) {
+    let bestLine = -1;
+    let bestScore = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('%')) continue;
+      const score = words.filter((word) => lines[i].toLowerCase().includes(word.toLowerCase())).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = i + 1;
+      }
+    }
+    if (bestLine > 0) return bestLine;
+  }
+
+  return -1;
+}
+
+export function clampTextItemToViewport(
+  rawLeft: number,
+  rawTop: number,
+  rawWidth: number,
+  rawHeight: number,
+  pageWidth: number,
+  pageHeight: number
+): { left: number; top: number; width: number; height: number } | null {
+  if (pageWidth <= 0 || pageHeight <= 0) return null;
+  if (!Number.isFinite(rawLeft) || !Number.isFinite(rawTop) || !Number.isFinite(rawWidth) || !Number.isFinite(rawHeight)) {
+    return null;
+  }
+
+  const clampedLeft = Math.max(0, Math.min(pageWidth, rawLeft));
+  const clampedTop = Math.max(0, Math.min(pageHeight, rawTop));
+  const maxWidth = Math.max(0, pageWidth - clampedLeft);
+  const maxHeight = Math.max(0, pageHeight - clampedTop);
+
+  const clampedWidth = Math.max(0, Math.min(Math.max(rawWidth, 10), maxWidth));
+  const clampedHeight = Math.max(0, Math.min(rawHeight, maxHeight));
+
+  if (clampedWidth < 2 || clampedHeight < 2) {
+    return null;
+  }
+
+  return {
+    left: Math.round(clampedLeft * 100) / 100,
+    top: Math.round(clampedTop * 100) / 100,
+    width: Math.round(clampedWidth * 100) / 100,
+    height: Math.round(clampedHeight * 100) / 100,
+  };
 }
 
 export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
   (
-    { projectId, pdfVersion, zoom, onZoomChange, compileStatus, onCompile, texContent = '', synctexBoxes = [], onJumpToSource },
+    { projectId, pdfVersion, zoom, onZoomChange, compileStatus, onCompile, texContent = '', onJumpToSource },
     ref
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -46,17 +131,30 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
     const renderTasks = useRef<Map<number, any>>(new Map());
     const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
     const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number } | null>(null);
+    const [renderedPageSizes, setRenderedPageSizes] = useState<Map<number, { width: number; height: number }>>(new Map());
     const [pageTextItems, setPageTextItems] = useState<Map<number, TextItemInfo[]>>(new Map());
 
     // Expose calculateFitWidth to parent
     useImperativeHandle(ref, () => ({
       calculateFitWidth: () => {
         if (!containerRef.current || !pageDimensions) return 100;
-        const availableWidth = containerRef.current.clientWidth - 48; // 24px padding each side
+        const availableWidth = Math.max(200, containerRef.current.clientWidth - 48); // 24px padding each side
         const calculatedZoom = Math.round((availableWidth / pageDimensions.width) * 100);
         return Math.max(40, Math.min(250, calculatedZoom));
       },
     }));
+
+    // Auto-clamp zoom to fit container width when PDF page dimensions first load if 100% would overflow the pane
+    useEffect(() => {
+      if (!containerRef.current || !pageDimensions) return;
+      const availableWidth = containerRef.current.clientWidth - 48;
+      if (availableWidth > 160 && pageDimensions.width * (zoom / 100) > availableWidth) {
+        const safeZoom = Math.max(40, Math.min(100, Math.floor((availableWidth / pageDimensions.width) * 100)));
+        if (safeZoom < zoom) {
+          onZoomChange(safeZoom);
+        }
+      }
+    }, [pageDimensions]);
 
     // Fetch and load PDF document whenever projectId or pdfVersion changes
     useEffect(() => {
@@ -116,6 +214,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
       const scale = zoom / 100;
       const dpr = window.devicePixelRatio || 1;
       const newTextItemsMap = new Map<number, TextItemInfo[]>();
+      const newSizesMap = new Map<number, { width: number; height: number }>();
 
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
         const canvas = canvasRefs.current.get(pageNum);
@@ -134,11 +233,17 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
           const ctx = canvas.getContext('2d', { alpha: false });
           if (!ctx) return;
 
+          const pageCssWidth = Math.floor(viewport.width);
+          const pageCssHeight = Math.floor(viewport.height);
+
           // HiDPI / Retina Crisp rendering
           canvas.width = Math.floor(viewport.width * dpr);
           canvas.height = Math.floor(viewport.height * dpr);
-          canvas.style.width = `${Math.floor(viewport.width)}px`;
-          canvas.style.height = `${Math.floor(viewport.height)}px`;
+          canvas.style.width = `${pageCssWidth}px`;
+          canvas.style.height = `${pageCssHeight}px`;
+
+          newSizesMap.set(pageNum, { width: pageCssWidth, height: pageCssHeight });
+          setRenderedPageSizes(new Map(newSizesMap));
 
           const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
 
@@ -156,7 +261,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
             }
           });
 
-          // Extract text content for click-to-code navigation
+          // Extract text content for click-to-code navigation, strictly clamped to page bounds
           try {
             const textContent = await page.getTextContent();
             const items: TextItemInfo[] = [];
@@ -164,13 +269,29 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
             for (const item of textContent.items as any[]) {
               if (!item.str || !item.str.trim()) continue;
               const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-              items.push({
-                str: item.str,
-                left: tx[4],
-                top: tx[5] - (item.height * scale),
-                width: item.width * scale,
-                height: Math.max(item.height * scale, 12 * scale),
-              });
+              const fontHeight = Math.max(Math.hypot(tx[2], tx[3]), (item.height || 10) * scale, 10 * scale);
+              const rawLeft = tx[4];
+              const rawTop = tx[5] - fontHeight;
+              const rawWidth = (item.width || 0) * scale;
+
+              const clamped = clampTextItemToViewport(
+                rawLeft,
+                rawTop,
+                rawWidth,
+                fontHeight,
+                pageCssWidth,
+                pageCssHeight
+              );
+
+              if (clamped) {
+                items.push({
+                  str: item.str,
+                  left: clamped.left,
+                  top: clamped.top,
+                  width: clamped.width,
+                  height: clamped.height,
+                });
+              }
             }
             newTextItemsMap.set(pageNum, items);
             setPageTextItems(new Map(newTextItemsMap));
@@ -183,33 +304,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
 
     // Handle clicking text on PDF to jump to LaTeX source code
     const handleTextClick = (textStr: string) => {
-      const cleanTarget = textStr.trim();
-      if (!cleanTarget || cleanTarget.length < 2 || !texContent) return;
-
-      const lines = texContent.split('\n');
-      let matchedLine = -1;
-
-      // 1. Exact substring match
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(cleanTarget)) {
-          matchedLine = i + 1;
-          break;
-        }
-      }
-
-      // 2. Word-based match if exact phrase not found (handles LaTeX commands stripped by PDF engine)
-      if (matchedLine === -1) {
-        const words = cleanTarget.split(/\s+/).filter((w) => w.length > 3);
-        if (words.length > 0) {
-          for (let i = 0; i < lines.length; i++) {
-            if (words.some((word) => lines[i].includes(word))) {
-              matchedLine = i + 1;
-              break;
-            }
-          }
-        }
-      }
-
+      const matchedLine = matchPdfTextToTexLine(textStr, texContent);
       if (matchedLine > 0) {
         onJumpToSource(matchedLine);
       }
@@ -304,10 +399,16 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
             <>
               {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => {
                 const textItems = pageTextItems.get(pageNum) || [];
+                const pageSize = renderedPageSizes.get(pageNum);
                 return (
                   <div
                     key={pageNum}
-                    className="relative group bg-[#fdfbf7] shadow-2xl rounded-sm transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                    style={
+                      pageSize
+                        ? { width: `${pageSize.width}px`, height: `${pageSize.height}px` }
+                        : undefined
+                    }
+                    className="relative group bg-[#fdfbf7] shadow-2xl rounded-sm overflow-hidden shrink-0 transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                   >
                     <canvas
                       ref={(el) => {
@@ -317,7 +418,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                       className="block rounded-sm bg-white"
                     />
 
-                    {/* Clickable Interactive Text Overlay (Click on text to jump to code) */}
+                    {/* Clickable Interactive Text Overlay (Strictly Clamped to Page Bounds) */}
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                       {textItems.map((item, idx) => (
                         <span
@@ -327,7 +428,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                           style={{
                             left: `${item.left}px`,
                             top: `${item.top}px`,
-                            width: `${Math.max(item.width, 10)}px`,
+                            width: `${item.width}px`,
                             height: `${item.height}px`,
                           }}
                           title={`Click to jump to: "${item.str}" in code`}
@@ -335,8 +436,8 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
                       ))}
                     </div>
 
-                    {/* Subtle Page Number Badge */}
-                    <div className="absolute -top-3 right-2 bg-[var(--bg-surface)]/90 backdrop-blur border border-[var(--border-color-subtle)] text-[9px] font-mono text-[var(--text-muted)] px-1.5 py-0.5 rounded shadow">
+                    {/* Subtle Page Number Badge (Inside Page Bounds) */}
+                    <div className="absolute top-2 right-2 bg-[var(--bg-surface)]/90 backdrop-blur border border-[var(--border-color-subtle)] text-[9px] font-mono text-[var(--text-muted)] px-1.5 py-0.5 rounded shadow pointer-events-none">
                       Page {pageNum} of {numPages}
                     </div>
                   </div>

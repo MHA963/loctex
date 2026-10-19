@@ -430,6 +430,45 @@ fastify.get('/api/projects/:id/file', async (request, reply) => {
   return { content };
 });
 
+const ASSET_MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+};
+
+fastify.get('/api/projects/:id/asset', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const { path: relPath } = request.query as { path: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, relPath);
+  } catch {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
+  if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
+    return reply.status(404).send({ error: 'Asset not found' });
+  }
+
+  const ext = path.extname(fullPath).toLowerCase();
+  const mimeType = ASSET_MIME_TYPES[ext] || 'application/octet-stream';
+  const buffer = fs.readFileSync(fullPath);
+
+  reply.header('Content-Type', mimeType);
+  reply.header('Content-Length', buffer.length);
+  reply.header('Cache-Control', 'no-cache');
+  return reply.send(buffer);
+});
+
 fastify.post('/api/projects/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
   const body = request.body as { path: string; content: string };

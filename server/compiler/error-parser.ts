@@ -159,6 +159,17 @@ export class LaTeXErrorParser {
       };
     }
 
+    if (normMsg.includes('overfull \\hbox')) {
+      return {
+        suggestion: `Text block or equation exceeds the page margin boundary. Add \\emergencystretch=3em or wrap wide elements to fit within \\linewidth.`,
+        quickFix: {
+          label: 'Enforce page margin limits (\\emergencystretch=3em)',
+          action: 'insert_package',
+          payload: '\\emergencystretch=3em\\tolerance=1000\\hbadness=10000',
+        },
+      };
+    }
+
     return {};
   }
 
@@ -174,6 +185,7 @@ export class LaTeXErrorParser {
     const errorLineRegex = /^! (.+)$/;
     const lineNumRegex = /^l\.(\d+)(.*)$/;
     const warningRegex = /^LaTeX Warning: (.+) on input line (\d+)\.$/;
+    const overfullRegex = /^(Overfull \\hbox \([0-9.]+pt too wide\)) in paragraph at lines (\d+)--(\d+)/;
 
     while (i < lines.length) {
       const line = lines[i].trim();
@@ -233,6 +245,24 @@ export class LaTeXErrorParser {
           file: currentFile,
           line: lineNum,
           message: warnMessage,
+          severity: 'warning',
+          suggestion,
+          quickFix,
+        });
+      }
+
+      // 3. Check for Overfull \hbox (text spilling outside page boundary limits)
+      const overfullMatch = line.match(overfullRegex);
+      if (overfullMatch) {
+        const overfullMsg = overfullMatch[1].trim();
+        const lineNum = parseInt(overfullMatch[2], 10);
+        const { suggestion, quickFix } = this.resolveSuggestion(overfullMsg, '', currentFile);
+
+        diagnostics.push({
+          id: `warn-${diagnostics.length + 1}`,
+          file: currentFile,
+          line: lineNum,
+          message: `${overfullMsg} (text extends outside page margin)`,
           severity: 'warning',
           suggestion,
           quickFix,
