@@ -8,6 +8,30 @@ import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { tags as t } from '@lezer/highlight';
 import { DiagnosticError } from '../types/index.ts';
 
+export interface PastedAssetPayload {
+  fileName: string;
+  base64Data?: string;
+  svgContent?: string;
+}
+
+export function buildPastedImageLatexSnippet(assetPath: string): string {
+  const normalizedPath = assetPath.replace(/\\/g, '/');
+  const baseLabel = normalizedPath
+    .split('/')
+    .pop()
+    ?.replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_') || 'image';
+
+  return [
+    '\\begin{figure}[htbp]',
+    '  \\centering',
+    `  \\includegraphics[width=0.8\\linewidth,keepaspectratio]{${normalizedPath}}`,
+    '  \\caption{}',
+    `  \\label{fig:${baseLabel}}`,
+    '\\end{figure}',
+  ].join('\n');
+}
+
 export interface EditorPaneRef {
   wrapSelection: (prefix: string, suffix: string) => void;
   insertSnippet: (snippet: string) => void;
@@ -21,6 +45,7 @@ interface EditorPaneProps {
   onLineClick?: (line: number) => void;
   activeLine?: number | null;
   onCompile?: () => void;
+  onPasteAsset?: (payload: PastedAssetPayload) => Promise<string | null>;
 }
 
 // Custom Vibrant LaTeX Highlight Style supporting all dynamic themes
@@ -38,14 +63,19 @@ const latexHighlightStyle = HighlightStyle.define([
 ]);
 
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
-  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile }, ref) => {
+  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile, onPasteAsset }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onCompileRef = useRef(onCompile);
+    const onPasteAssetRef = useRef(onPasteAsset);
 
     useEffect(() => {
       onCompileRef.current = onCompile;
     }, [onCompile]);
+
+    useEffect(() => {
+      onPasteAssetRef.current = onPasteAsset;
+    }, [onPasteAsset]);
 
     // Expose imperative methods for topbar formatting
     useImperativeHandle(ref, () => ({
@@ -158,6 +188,46 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
         },
       });
 
+      const pasteExtension = EditorView.domEventHandlers({
+        paste(event, view) {
+          const clipboard = event.clipboardData;
+          if (!clipboard || !onPasteAssetRef.current) return false;
+
+          // Check for binary screenshot / image files in clipboard items
+          const items = Array.from(clipboard.items || []);
+          const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'));
+
+          if (imageItem) {
+            const file = imageItem.getAsFile();
+            if (!file) return false;
+
+            event.preventDefault();
+            const mimeSubtype = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+            const ext = mimeSubtype.replace(/[^a-z0-9]/gi, '') || 'png';
+            const fileName = `figures/pasted_${Date.now()}.${ext}`;
+
+            const reader = new FileReader();
+            reader.onload = async () => {
+              const base64Data = typeof reader.result === 'string' ? reader.result : '';
+              if (!base64Data || !onPasteAssetRef.current) return;
+              const savedPath = await onPasteAssetRef.current({ fileName, base64Data });
+              if (savedPath) {
+                const snippet = buildPastedImageLatexSnippet(savedPath);
+                const sel = view.state.selection.main;
+                view.dispatch({
+                  changes: { from: sel.from, to: sel.to, insert: snippet },
+                  selection: { anchor: sel.from + snippet.length },
+                });
+              }
+            };
+            reader.readAsDataURL(file);
+            return true;
+          }
+
+          return false;
+        },
+      });
+
       const startState = EditorState.create({
         doc: content,
         extensions: [
@@ -168,6 +238,7 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
           StreamLanguage.define(stex),
           syntaxHighlighting(latexHighlightStyle),
           autocompletion({ override: [latexCompletions] }),
+          pasteExtension,
           keymap.of([
             {
               key: 'Mod-Enter',
