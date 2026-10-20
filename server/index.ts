@@ -469,6 +469,50 @@ fastify.get('/api/projects/:id/asset', async (request, reply) => {
   return reply.send(buffer);
 });
 
+fastify.post('/api/projects/:id/asset', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = (request.body || {}) as {
+    path?: string;
+    base64Data?: string;
+    svgContent?: string;
+  };
+
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+
+  const requestedPath = (body.path || '').trim().replace(/\\/g, '/');
+  if (!requestedPath) {
+    return reply.status(400).send({ error: 'Target asset path is required' });
+  }
+
+  let fullPath: string;
+  try {
+    fullPath = resolveContainedPath(project.root_path, requestedPath);
+  } catch {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
+  let buffer: Buffer;
+  if (typeof body.svgContent === 'string' && body.svgContent.trim().length > 0) {
+    buffer = Buffer.from(body.svgContent, 'utf-8');
+  } else if (typeof body.base64Data === 'string' && body.base64Data.trim().length > 0) {
+    const cleanBase64 = body.base64Data.replace(/^data:[^;]+;base64,/, '');
+    buffer = Buffer.from(cleanBase64, 'base64');
+  } else {
+    return reply.status(400).send({ error: 'Either base64Data or svgContent must be provided' });
+  }
+
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, buffer);
+
+  const normalizedRelPath = path.relative(project.root_path, fullPath).replace(/\\/g, '/');
+  return {
+    success: true,
+    path: normalizedRelPath,
+    sizeBytes: buffer.length,
+  };
+});
+
 fastify.post('/api/projects/:id/file', async (request, reply) => {
   const { id } = request.params as { id: string };
   const body = request.body as { path: string; content: string };
@@ -512,7 +556,11 @@ fastify.post('/api/projects/:id/file/create', async (request, reply) => {
     fs.mkdirSync(fullPath, { recursive: true });
   } else {
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-    fs.writeFileSync(fullPath, body.initialContent || '% New LaTeX file\n', 'utf-8');
+    const isBibFile = body.path.toLowerCase().endsWith('.bib');
+    const defaultStarterContent = isBibFile
+      ? `@article{reference2026,\n  author  = {Author Name},\n  title   = {Research Article Title},\n  journal = {Journal of Reproducible Research},\n  year    = {2026}\n}\n`
+      : `% ${body.path}\n\\section{New Section}\n\n`;
+    fs.writeFileSync(fullPath, body.initialContent ?? defaultStarterContent, 'utf-8');
   }
 
   return { success: true, path: body.path };
