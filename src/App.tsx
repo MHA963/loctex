@@ -407,6 +407,33 @@ export default function App() {
     }
   };
 
+  const handlePasteAssetInEditor = async (payload: {
+    fileName: string;
+    base64Data?: string;
+    svgContent?: string;
+  }): Promise<string | null> => {
+    if (!activeProject) return null;
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/asset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: payload.fileName,
+          base64Data: payload.base64Data,
+          svgContent: payload.svgContent,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.path) {
+        await refreshProjectFiles(activeProject.id);
+        return data.path as string;
+      }
+    } catch (e) {
+      console.error('Failed to import pasted asset:', e);
+    }
+    return null;
+  };
+
   const handleCreateNewFile = async (requestedName?: string, kind: 'tex' | 'bib' = 'tex') => {
     if (!activeProject) return;
     const fileName = requestedName?.trim();
@@ -637,6 +664,7 @@ export default function App() {
                 diagnostics={diagnostics}
                 activeLine={activeLine}
                 onCompile={() => triggerCompile()}
+                onPasteAsset={handlePasteAssetInEditor}
               />
             )}
           </div>

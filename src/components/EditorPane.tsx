@@ -14,6 +14,12 @@ export interface PastedAssetPayload {
   svgContent?: string;
 }
 
+export function isRawSvgMarkup(text: string): boolean {
+  const trimmed = (text || '').trim();
+  if (trimmed.length < 20) return false;
+  return /^(?:<\?xml[^>]*>\s*)?<svg[\s>][\s\S]*<\/svg>$/i.test(trimmed);
+}
+
 export function buildPastedImageLatexSnippet(assetPath: string): string {
   const normalizedPath = assetPath.replace(/\\/g, '/');
   const baseLabel = normalizedPath
@@ -221,6 +227,33 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
               }
             };
             reader.readAsDataURL(file);
+            return true;
+          }
+
+          // Check for raw <svg>...</svg> markup or image/svg+xml text payload pasted into the code editor
+          const svgMimeText = clipboard.getData('image/svg+xml');
+          const plainText = clipboard.getData('text/plain');
+          const candidateSvg = isRawSvgMarkup(svgMimeText)
+            ? svgMimeText.trim()
+            : isRawSvgMarkup(plainText)
+            ? plainText.trim()
+            : null;
+
+          if (candidateSvg) {
+            event.preventDefault();
+            const fileName = `figures/pasted_${Date.now()}.svg`;
+            void (async () => {
+              if (!onPasteAssetRef.current) return;
+              const savedPath = await onPasteAssetRef.current({ fileName, svgContent: candidateSvg });
+              if (savedPath) {
+                const snippet = buildPastedImageLatexSnippet(savedPath);
+                const sel = view.state.selection.main;
+                view.dispatch({
+                  changes: { from: sel.from, to: sel.to, insert: snippet },
+                  selection: { anchor: sel.from + snippet.length },
+                });
+              }
+            })();
             return true;
           }
 
