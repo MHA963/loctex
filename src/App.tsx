@@ -380,24 +380,47 @@ export default function App() {
     }
   };
 
-  // File CRUD
-  const handleCreateNewFile = async () => {
+  // File CRUD & Asset Uploads
+  const refreshProjectFiles = async (projectId: string) => {
+    const filesRes = await fetch(`/api/projects/${projectId}/files`);
+    const filesData = await filesRes.json();
+    setFiles(filesData.files || []);
+  };
+
+  const handleUploadAsset = async (fileName: string, base64Data: string) => {
     if (!activeProject) return;
-    const fileName = prompt('Enter new filename (e.g. results.tex or references.bib):');
-    if (fileName) {
-      try {
-        await fetch(`/api/projects/${activeProject.id}/file/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: fileName }),
-        });
-        const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
-        const filesData = await filesRes.json();
-        setFiles(filesData.files || []);
-        handleSelectFile(fileName);
-      } catch (e) {
-        console.error('Failed to create file:', e);
+    const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const targetPath = cleanName.includes('/') ? cleanName : `figures/${cleanName}`;
+    try {
+      const res = await fetch(`/api/projects/${activeProject.id}/asset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: targetPath, base64Data }),
+      });
+      const data = await res.json();
+      if (data.success && data.path) {
+        await refreshProjectFiles(activeProject.id);
+        await handleSelectFile(data.path);
       }
+    } catch (e) {
+      console.error('Failed to upload asset:', e);
+    }
+  };
+
+  const handleCreateNewFile = async (requestedName?: string, kind: 'tex' | 'bib' = 'tex') => {
+    if (!activeProject) return;
+    const fileName = requestedName?.trim();
+    if (!fileName) return;
+    try {
+      await fetch(`/api/projects/${activeProject.id}/file/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fileName }),
+      });
+      await refreshProjectFiles(activeProject.id);
+      await handleSelectFile(fileName);
+    } catch (e) {
+      console.error(`Failed to create ${kind} file:`, e);
     }
   };
 
@@ -407,9 +430,7 @@ export default function App() {
       await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`, {
         method: 'DELETE',
       });
-      const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
-      const filesData = await filesRes.json();
-      setFiles(filesData.files || []);
+      await refreshProjectFiles(activeProject.id);
       if (activeFile === filePath) {
         handleSelectFile('main.tex');
       }
@@ -431,9 +452,7 @@ export default function App() {
       await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(oldPath)}`, {
         method: 'DELETE',
       });
-      const filesRes = await fetch(`/api/projects/${activeProject.id}/files`);
-      const filesData = await filesRes.json();
-      setFiles(filesData.files || []);
+      await refreshProjectFiles(activeProject.id);
       handleSelectFile(newName);
     } catch (e) {
       console.error('Failed to rename file:', e);
@@ -589,7 +608,9 @@ export default function App() {
             onImportZip={() => setImportZipOpen(true)}
             onExportZip={handleExportZip}
             onExportPdf={handleExportPdf}
-            onNewFile={handleCreateNewFile}
+            onNewFile={() => handleCreateNewFile('section.tex', 'tex')}
+            onCreateFile={handleCreateNewFile}
+            onUploadAsset={handleUploadAsset}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
           />
