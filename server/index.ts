@@ -556,7 +556,11 @@ fastify.post('/api/projects/:id/file/create', async (request, reply) => {
     fs.mkdirSync(fullPath, { recursive: true });
   } else {
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-    fs.writeFileSync(fullPath, body.initialContent || '% New LaTeX file\n', 'utf-8');
+    const isBibFile = body.path.toLowerCase().endsWith('.bib');
+    const defaultStarterContent = isBibFile
+      ? `@article{reference2026,\n  author  = {Author Name},\n  title   = {Research Article Title},\n  journal = {Journal of Reproducible Research},\n  year    = {2026}\n}\n`
+      : `% ${body.path}\n\\section{New Section}\n\n`;
+    fs.writeFileSync(fullPath, body.initialContent ?? defaultStarterContent, 'utf-8');
   }
 
   return { success: true, path: body.path };
