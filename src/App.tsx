@@ -21,7 +21,11 @@ import {
   VersionSnapshot,
   WorkspaceMode,
 } from './types/index.ts';
-import { SelectionFormatState } from './utils/latex-format.ts';
+import {
+  FontFamilyCommand,
+  FontSizeCommand,
+  SelectionFormatState,
+} from './utils/latex-format.ts';
 
 export default function App() {
   const editorRef = useRef<EditorPaneRef | null>(null);
@@ -380,6 +384,8 @@ export default function App() {
   const handleToggleBold = () => editorRef.current?.toggleInlineFormat('bold');
   const handleToggleItalic = () => editorRef.current?.toggleInlineFormat('italic');
   const handleToggleUnderline = () => editorRef.current?.toggleInlineFormat('underline');
+  const handleApplyFontFamily = (family: FontFamilyCommand) => editorRef.current?.applyFontFamily(family);
+  const handleApplyFontSize = (size: FontSizeCommand) => editorRef.current?.applyFontSize(size);
 
   const handleToggleCode = () => {
     setIsCode(!isCode);
@@ -584,8 +590,12 @@ export default function App() {
         onOpenQwenAssistant={() => setQwenModalOpen(true)}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
+        fontFamilyCommand={selectionFormat.fontFamily}
+        onApplyFontFamily={handleApplyFontFamily}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
+        fontSizeCommand={selectionFormat.fontSize}
+        onApplyFontSize={handleApplyFontSize}
         isBold={isBold}
         onToggleBold={handleToggleBold}
         isItalic={isItalic}

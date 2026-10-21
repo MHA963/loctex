@@ -8,9 +8,13 @@ import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { tags as t } from '@lezer/highlight';
 import { DiagnosticError } from '../types/index.ts';
 import {
+  FontFamilyCommand,
+  FontSizeCommand,
   FormatEdit,
   InlineToggleKind,
   SelectionFormatState,
+  applyFontFamily,
+  applyFontSize,
   detectSelectionFormat,
   toggleInlineFormat,
 } from '../utils/latex-format.ts';
@@ -48,6 +52,8 @@ export function buildPastedImageLatexSnippet(assetPath: string): string {
 export interface EditorPaneRef {
   wrapSelection: (prefix: string, suffix: string) => void;
   toggleInlineFormat: (kind: InlineToggleKind) => void;
+  applyFontFamily: (family: FontFamilyCommand) => void;
+  applyFontSize: (size: FontSizeCommand) => void;
   insertSnippet: (snippet: string) => void;
   jumpToLine: (line: number) => void;
 }
@@ -113,6 +119,18 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
         const { state } = viewRef.current;
         const { from, to } = state.selection.main;
         dispatchFormatEdit(toggleInlineFormat(state.doc.toString(), from, to, kind));
+      },
+      applyFontFamily: (family: FontFamilyCommand) => {
+        if (!viewRef.current) return;
+        const { state } = viewRef.current;
+        const { from, to } = state.selection.main;
+        dispatchFormatEdit(applyFontFamily(state.doc.toString(), from, to, family));
+      },
+      applyFontSize: (size: FontSizeCommand) => {
+        if (!viewRef.current) return;
+        const { state } = viewRef.current;
+        const { from, to } = state.selection.main;
+        dispatchFormatEdit(applyFontSize(state.doc.toString(), from, to, size));
       },
       wrapSelection: (prefix: string, suffix: string) => {
         if (!viewRef.current) return;

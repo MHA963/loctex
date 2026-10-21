@@ -15,6 +15,12 @@ import {
   Square,
 } from 'lucide-react';
 import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
+import {
+  FONT_FAMILY_OPTIONS,
+  FONT_SIZE_OPTIONS,
+  FontFamilyCommand,
+  FontSizeCommand,
+} from '../utils/latex-format.ts';
 
 interface HeaderPillProps {
   compileStatus: CompileStatus;
@@ -24,10 +30,14 @@ interface HeaderPillProps {
   onFitWidth: () => void;
   onCompile: () => void;
   onOpenQwenAssistant?: () => void;
-  fontFamily: FontFamily;
-  onFontFamilyChange: (font: FontFamily) => void;
-  fontSize: string;
-  onFontSizeChange: (size: string) => void;
+  fontFamily?: FontFamily;
+  onFontFamilyChange?: (font: FontFamily) => void;
+  fontSize?: string;
+  onFontSizeChange?: (size: string) => void;
+  fontFamilyCommand?: FontFamilyCommand;
+  onApplyFontFamily?: (family: FontFamilyCommand) => void;
+  fontSizeCommand?: FontSizeCommand;
+  onApplyFontSize?: (size: FontSizeCommand) => void;
   isBold: boolean;
   onToggleBold: () => void;
   isItalic: boolean;
@@ -56,6 +66,10 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onFontFamilyChange,
   fontSize,
   onFontSizeChange,
+  fontFamilyCommand,
+  onApplyFontFamily,
+  fontSizeCommand,
+  onApplyFontSize,
   isBold,
   onToggleBold,
   isItalic,
@@ -71,6 +85,11 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 }) => {
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+
+  const currentFontFamily = fontFamilyCommand ?? 'default';
+  const currentFamilyOption =
+    FONT_FAMILY_OPTIONS.find((f) => f.id === currentFontFamily) ?? FONT_FAMILY_OPTIONS[0];
+  const currentFontSize = fontSizeCommand ?? 'normalsize';
 
   const academicFonts: { name: FontFamily; label: string; previewClass: string }[] = [
     { name: 'EB Garamond', label: 'EB Garamond (Classic Academic)', previewClass: 'font-serif' },
@@ -209,32 +228,49 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           <div className="relative">
             <button
               onClick={() => setFontMenuOpen(!fontMenuOpen)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors text-[11px]"
+              title="Apply Font Family to highlighted text"
             >
-              <span>{fontFamily}</span>
+              <span>{onApplyFontFamily ? currentFamilyOption.label : fontFamily}</span>
               <ChevronDown className="w-2.5 h-2.5 text-[var(--text-muted)]" />
             </button>
 
             {fontMenuOpen && (
               <div className="absolute top-full mt-1.5 left-0 w-52 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50">
                 <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">
-                  Academic Fonts
+                  {onApplyFontFamily ? 'LaTeX Font Family' : 'Academic Fonts'}
                 </div>
-                {academicFonts.map((f) => (
-                  <button
-                    key={f.name}
-                    onClick={() => {
-                      onFontFamilyChange(f.name);
-                      setFontMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center justify-between ${
-                      fontFamily === f.name ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
-                    }`}
-                  >
-                    <span className={f.previewClass}>{f.name}</span>
-                    {fontFamily === f.name && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />}
-                  </button>
-                ))}
+                {onApplyFontFamily
+                  ? FONT_FAMILY_OPTIONS.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          onApplyFontFamily(f.id);
+                          setFontMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center justify-between ${
+                          currentFontFamily === f.id ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <span>{f.label}</span>
+                        {currentFontFamily === f.id && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />}
+                      </button>
+                    ))
+                  : academicFonts.map((f) => (
+                      <button
+                        key={f.name}
+                        onClick={() => {
+                          onFontFamilyChange?.(f.name);
+                          setFontMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center justify-between ${
+                          fontFamily === f.name ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <span className={f.previewClass}>{f.name}</span>
+                        {fontFamily === f.name && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />}
+                      </button>
+                    ))}
               </div>
             )}
           </div>
@@ -272,13 +308,30 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
           {/* Font Size Selector */}
           <select
-            value={fontSize}
-            onChange={(e) => onFontSizeChange(e.target.value)}
+            value={onApplyFontSize ? currentFontSize : fontSize}
+            onChange={(e) => {
+              if (onApplyFontSize) {
+                onApplyFontSize(e.target.value as FontSizeCommand);
+              } else if (onFontSizeChange) {
+                onFontSizeChange(e.target.value);
+              }
+            }}
             className="bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded px-1.5 py-0.5 text-[10px] font-mono border border-[var(--border-color-subtle)] focus:outline-none cursor-pointer"
+            title="Apply Font Size to highlighted text"
           >
-            <option value="10pt">10pt</option>
-            <option value="11pt">11pt</option>
-            <option value="12pt">12pt</option>
+            {onApplyFontSize ? (
+              FONT_SIZE_OPTIONS.map((size) => (
+                <option key={size.id} value={size.id}>
+                  \{size.id}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="10pt">10pt</option>
+                <option value="11pt">11pt</option>
+                <option value="12pt">12pt</option>
+              </>
+            )}
           </select>
         </div>
       </div>
