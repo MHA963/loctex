@@ -77,6 +77,37 @@ export function findMatchingBrace(text: string, openIndex: number): number {
   return -1;
 }
 
+const METADATA_MACROS = [
+  'label',
+  'ref',
+  'pageref',
+  'autoref',
+  'eqref',
+  'cite',
+  'citep',
+  'citet',
+  'citealt',
+  'citealp',
+  'nocite',
+  'includegraphics',
+  'bibliography',
+  'bibliographystyle',
+  'input',
+  'include',
+  'documentclass',
+  'usepackage',
+  'usetikzlibrary',
+  'pagestyle',
+  'thispagestyle',
+  'pagenumbering',
+  'geometry',
+];
+
+const METADATA_MACRO_REGEX = new RegExp(
+  `\\\\(?:${METADATA_MACROS.join('|')})(?:\\*|\\[[^\\]]*\\])?\\s*\\{[^{}]*\\}`,
+  'gi'
+);
+
 /**
  * Strips LaTeX command markup from text while retaining the enclosed word tokens.
  * E.g., `\textbf{Hello} world` -> `Hello world`
@@ -84,8 +115,10 @@ export function findMatchingBrace(text: string, openIndex: number): number {
 export function stripLatexMarkup(text: string): string {
   let cleaned = text;
 
+  // First, completely discard metadata macros whose arguments are labels or filenames
+  cleaned = cleaned.replace(METADATA_MACRO_REGEX, ' ');
+
   // Unpack common inline formatting macros with one argument: \macro{content} -> content
-  // Repeat to handle nesting e.g. \textbf{\textit{word}}
   for (let pass = 0; pass < 3; pass++) {
     cleaned = cleaned.replace(
       /\\[a-zA-Z]+(?:\*|\[[^\]]*\])?\{([^{}]*)\}/g,
@@ -132,8 +165,14 @@ const HEADER_NAMES = [
 const DISPLAY_MATH_ENV_REGEX =
   /\\begin\{(?:equation\*?|align\*?|gather\*?|multline\*?|eqnarray\*?|displaymath\*?)\}[\s\S]*?\\end\{(?:equation\*?|align\*?|gather\*?|multline\*?|eqnarray\*?|displaymath\*?)\}/gi;
 
-const OUTSIDE_TEXT_ENV_REGEX =
-  /\\begin\{(?:abstract|tabular\*?|table\*?)\}[\s\S]*?\\end\{(?:abstract|tabular\*?|table\*?)\}/gi;
+const FIGURE_ENV_REGEX =
+  /\\begin\{(?:figure\*?|wrapfigure)\}[\s\S]*?\\end\{(?:figure\*?|wrapfigure)\}/gi;
+
+const TABLE_ENV_REGEX =
+  /\\begin\{(?:table\*?|tabular\*?)\}[\s\S]*?\\end\{(?:table\*?|tabular\*?)\}/gi;
+
+const ABSTRACT_ENV_REGEX =
+  /\\begin\{abstract\}[\s\S]*?\\end\{abstract\}/gi;
 
 /**
  * Computes all 8 document statistics for the provided LaTeX document text.
@@ -144,79 +183,60 @@ export function computeDocumentStatistics(latexSource: string): DocumentStatisti
   }
 
   // 1. Strip comments
-  let workingText = stripLatexComments(latexSource);
+  let fullCleaned = stripLatexComments(latexSource);
 
-  // 2. Isolate body if \begin{document} is present
-  const docStart = workingText.indexOf('\\begin{document}');
-  if (docStart !== -1) {
-    const afterStart = docStart + '\\begin{document}'.length;
-    const docEnd = workingText.indexOf('\\end{document}', afterStart);
-    workingText = docEnd !== -1 ? workingText.slice(afterStart, docEnd) : workingText.slice(afterStart);
-  }
-
-  // 3. Count Display Math & remove from working text
-  let numberOfMathDisplayed = 0;
-
-  // Environment display math: \begin{equation} ... \end{equation}
-  const envDisplayMatches = workingText.match(DISPLAY_MATH_ENV_REGEX);
-  if (envDisplayMatches) {
-    numberOfMathDisplayed += envDisplayMatches.length;
-    workingText = workingText.replace(DISPLAY_MATH_ENV_REGEX, ' ');
-  }
-
-  // $$ ... $$ display math
-  const doubleDollarRegex = /\$\$[\s\S]*?\$\$/g;
-  const doubleDollarMatches = workingText.match(doubleDollarRegex);
-  if (doubleDollarMatches) {
-    numberOfMathDisplayed += doubleDollarMatches.length;
-    workingText = workingText.replace(doubleDollarRegex, ' ');
-  }
-
-  // \[ ... \] display math
-  const bracketDisplayRegex = /\\\[[\s\S]*?\\\]/g;
-  const bracketDisplayMatches = workingText.match(bracketDisplayRegex);
-  if (bracketDisplayMatches) {
-    numberOfMathDisplayed += bracketDisplayMatches.length;
-    workingText = workingText.replace(bracketDisplayRegex, ' ');
-  }
-
-  // 4. Count Inline Math & remove from working text
-  let numberOfMathInlines = 0;
-
-  // \( ... \) inline math
-  const parenInlineRegex = /\\\([\s\S]*?\\\)/g;
-  const parenInlineMatches = workingText.match(parenInlineRegex);
-  if (parenInlineMatches) {
-    numberOfMathInlines += parenInlineMatches.length;
-    workingText = workingText.replace(parenInlineRegex, ' ');
-  }
-
-  // $ ... $ inline math (single dollar, non-escaped)
-  const singleDollarRegex = /(?<!\\)\$(?!\$)([\s\S]*?)(?<!\\)\$/g;
-  const singleDollarMatches = workingText.match(singleDollarRegex);
-  if (singleDollarMatches) {
-    numberOfMathInlines += singleDollarMatches.length;
-    workingText = workingText.replace(singleDollarRegex, ' ');
-  }
-
-  // 5. Count Figures
+  // 2. Count Figures
   let numberOfFigures = 0;
-  // Match figure environments: \begin{figure} / \begin{figure*} / \begin{wrapfigure}
-  const figureEnvRegex = /\\begin\{(?:figure\*?|wrapfigure)\}/gi;
-  const figureEnvMatches = workingText.match(figureEnvRegex);
-  const figureEnvCount = figureEnvMatches ? figureEnvMatches.length : 0;
-  numberOfFigures += figureEnvCount;
-
+  const figureEnvMatches = fullCleaned.match(/\\begin\{(?:figure\*?|wrapfigure)\}/gi);
+  if (figureEnvMatches) {
+    numberOfFigures += figureEnvMatches.length;
+  }
   // Standalone \includegraphics outside figure environments
-  // First, extract all figure env blocks to count any standalone graphics outside them
-  const figureBlockRegex = /\\begin\{(?:figure\*?|wrapfigure)\}[\s\S]*?\\end\{(?:figure\*?|wrapfigure)\}/gi;
-  const textWithoutFigures = workingText.replace(figureBlockRegex, ' ');
+  const textWithoutFigures = fullCleaned.replace(FIGURE_ENV_REGEX, ' ');
   const standaloneGraphics = textWithoutFigures.match(/\\includegraphics(?:\*|\[[^\]]*\])?\{[^{}]*\}/gi);
   if (standaloneGraphics) {
     numberOfFigures += standaloneGraphics.length;
   }
 
-  // 6. Count Headers and Words in Headers
+  // 3. Count Display Math & remove from text
+  let numberOfMathDisplayed = 0;
+  const envDisplayMatches = fullCleaned.match(DISPLAY_MATH_ENV_REGEX);
+  if (envDisplayMatches) {
+    numberOfMathDisplayed += envDisplayMatches.length;
+    fullCleaned = fullCleaned.replace(DISPLAY_MATH_ENV_REGEX, ' ');
+  }
+
+  const doubleDollarRegex = /\$\$[\s\S]*?\$\$/g;
+  const doubleDollarMatches = fullCleaned.match(doubleDollarRegex);
+  if (doubleDollarMatches) {
+    numberOfMathDisplayed += doubleDollarMatches.length;
+    fullCleaned = fullCleaned.replace(doubleDollarRegex, ' ');
+  }
+
+  const bracketDisplayRegex = /\\\[[\s\S]*?\\\]/g;
+  const bracketDisplayMatches = fullCleaned.match(bracketDisplayRegex);
+  if (bracketDisplayMatches) {
+    numberOfMathDisplayed += bracketDisplayMatches.length;
+    fullCleaned = fullCleaned.replace(bracketDisplayRegex, ' ');
+  }
+
+  // 4. Count Inline Math & remove from text
+  let numberOfMathInlines = 0;
+  const parenInlineRegex = /\\\([\s\S]*?\\\)/g;
+  const parenInlineMatches = fullCleaned.match(parenInlineRegex);
+  if (parenInlineMatches) {
+    numberOfMathInlines += parenInlineMatches.length;
+    fullCleaned = fullCleaned.replace(parenInlineRegex, ' ');
+  }
+
+  const singleDollarRegex = /(?<!\\)\$(?!\$)([\s\S]*?)(?<!\\)\$/g;
+  const singleDollarMatches = fullCleaned.match(singleDollarRegex);
+  if (singleDollarMatches) {
+    numberOfMathInlines += singleDollarMatches.length;
+    fullCleaned = fullCleaned.replace(singleDollarRegex, ' ');
+  }
+
+  // 5. Count Headers and Words in Headers (scanned across full document to include preamble \title)
   let numberOfHeaders = 0;
   let wordsInHeaders = 0;
 
@@ -228,11 +248,11 @@ export function computeDocumentStatistics(latexSource: string): DocumentStatisti
   let match: RegExpExecArray | null;
   const headerRanges: { start: number; end: number; text: string }[] = [];
 
-  while ((match = headerCommandRegex.exec(workingText)) !== null) {
+  while ((match = headerCommandRegex.exec(fullCleaned)) !== null) {
     const braceStartIndex = match.index + match[0].length - 1;
-    const braceEndIndex = findMatchingBrace(workingText, braceStartIndex);
+    const braceEndIndex = findMatchingBrace(fullCleaned, braceStartIndex);
     if (braceEndIndex !== -1) {
-      const headerContent = workingText.slice(braceStartIndex + 1, braceEndIndex);
+      const headerContent = fullCleaned.slice(braceStartIndex + 1, braceEndIndex);
       headerRanges.push({
         start: match.index,
         end: braceEndIndex + 1,
@@ -243,33 +263,57 @@ export function computeDocumentStatistics(latexSource: string): DocumentStatisti
     }
   }
 
-  // Remove headers from working text (in reverse order to preserve indices)
+  // Remove headers from fullCleaned
   for (let i = headerRanges.length - 1; i >= 0; i--) {
     const r = headerRanges[i];
-    workingText = workingText.slice(0, r.start) + ' ' + workingText.slice(r.end);
+    fullCleaned = fullCleaned.slice(0, r.start) + ' ' + fullCleaned.slice(r.end);
   }
 
-  // 7. Count Words Outside Text (captions, footnotes, thanks, abstract, tables)
+  // 6. Count Words Outside Text (captions, footnotes, thanks, abstract, tables, figures)
   let wordsOutsideText = 0;
 
-  // Outside text environments (abstract, tabular, table)
-  const outsideEnvs = workingText.match(OUTSIDE_TEXT_ENV_REGEX);
-  if (outsideEnvs) {
-    for (const envText of outsideEnvs) {
-      wordsOutsideText += countWords(envText);
+  // Extract and count abstract
+  const abstractMatches = fullCleaned.match(ABSTRACT_ENV_REGEX);
+  if (abstractMatches) {
+    for (const abs of abstractMatches) {
+      wordsOutsideText += countWords(abs);
     }
-    workingText = workingText.replace(OUTSIDE_TEXT_ENV_REGEX, ' ');
+    fullCleaned = fullCleaned.replace(ABSTRACT_ENV_REGEX, ' ');
+  }
+
+  // Extract and count table environments
+  const tableMatches = fullCleaned.match(TABLE_ENV_REGEX);
+  if (tableMatches) {
+    for (const tbl of tableMatches) {
+      wordsOutsideText += countWords(tbl);
+    }
+    fullCleaned = fullCleaned.replace(TABLE_ENV_REGEX, ' ');
+  }
+
+  // Extract captions and notes from figure environments before stripping figures
+  const figureMatches = fullCleaned.match(FIGURE_ENV_REGEX);
+  if (figureMatches) {
+    for (const fig of figureMatches) {
+      // Find captions inside this figure
+      const captionMatches = fig.match(/\\caption(?:\*|\[[^\]]*\])?\{[^{}]*\}/gi);
+      if (captionMatches) {
+        for (const cap of captionMatches) {
+          wordsOutsideText += countWords(cap);
+        }
+      }
+    }
+    fullCleaned = fullCleaned.replace(FIGURE_ENV_REGEX, ' ');
   }
 
   // Outside text commands: \caption{...}, \footnote{...}, \thanks{...}, \marginpar{...}
   const outsideCommandRegex = /\\(?:caption\*?|footnote|thanks|marginpar)(?:\[[^\]]*\])?\s*\{/g;
   const outsideRanges: { start: number; end: number; text: string }[] = [];
 
-  while ((match = outsideCommandRegex.exec(workingText)) !== null) {
+  while ((match = outsideCommandRegex.exec(fullCleaned)) !== null) {
     const braceStartIndex = match.index + match[0].length - 1;
-    const braceEndIndex = findMatchingBrace(workingText, braceStartIndex);
+    const braceEndIndex = findMatchingBrace(fullCleaned, braceStartIndex);
     if (braceEndIndex !== -1) {
-      const outsideContent = workingText.slice(braceStartIndex + 1, braceEndIndex);
+      const outsideContent = fullCleaned.slice(braceStartIndex + 1, braceEndIndex);
       outsideRanges.push({
         start: match.index,
         end: braceEndIndex + 1,
@@ -279,10 +323,18 @@ export function computeDocumentStatistics(latexSource: string): DocumentStatisti
     }
   }
 
-  // Remove outside commands from working text
   for (let i = outsideRanges.length - 1; i >= 0; i--) {
     const r = outsideRanges[i];
-    workingText = workingText.slice(0, r.start) + ' ' + workingText.slice(r.end);
+    fullCleaned = fullCleaned.slice(0, r.start) + ' ' + fullCleaned.slice(r.end);
+  }
+
+  // 7. Isolate body prose if \begin{document} is present (ignoring packages, preamble config)
+  let workingText = fullCleaned;
+  const docStart = workingText.indexOf('\\begin{document}');
+  if (docStart !== -1) {
+    const afterStart = docStart + '\\begin{document}'.length;
+    const docEnd = workingText.indexOf('\\end{document}', afterStart);
+    workingText = docEnd !== -1 ? workingText.slice(afterStart, docEnd) : workingText.slice(afterStart);
   }
 
   // 8. Remaining is Words in Text (body prose)
