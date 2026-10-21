@@ -352,20 +352,10 @@ export default function App() {
   }, []);
 
   // Topbar Typography Format Actions
-  const handleToggleBold = () => {
-    setIsBold(!isBold);
-    editorRef.current?.wrapSelection('\\textbf{', '}');
-  };
-
-  const handleToggleItalic = () => {
-    setIsItalic(!isItalic);
-    editorRef.current?.wrapSelection('\\textit{', '}');
-  };
-
-  const handleToggleUnderline = () => {
-    setIsUnderline(!isUnderline);
-    editorRef.current?.wrapSelection('\\underline{', '}');
-  };
+  // B / I / U wrap the selection on first click and unwrap the enclosing macro on second click
+  const handleToggleBold = () => editorRef.current?.toggleInlineFormat('bold');
+  const handleToggleItalic = () => editorRef.current?.toggleInlineFormat('italic');
+  const handleToggleUnderline = () => editorRef.current?.toggleInlineFormat('underline');
 
   const handleToggleCode = () => {
     setIsCode(!isCode);

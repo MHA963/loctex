@@ -7,6 +7,7 @@ import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { tags as t } from '@lezer/highlight';
 import { DiagnosticError } from '../types/index.ts';
+import { FormatEdit, InlineToggleKind, toggleInlineFormat } from '../utils/latex-format.ts';
 
 export interface PastedAssetPayload {
   fileName: string;
@@ -40,6 +41,7 @@ export function buildPastedImageLatexSnippet(assetPath: string): string {
 
 export interface EditorPaneRef {
   wrapSelection: (prefix: string, suffix: string) => void;
+  toggleInlineFormat: (kind: InlineToggleKind) => void;
   insertSnippet: (snippet: string) => void;
   jumpToLine: (line: number) => void;
 }
@@ -83,8 +85,23 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
       onPasteAssetRef.current = onPasteAsset;
     }, [onPasteAsset]);
 
+    const dispatchFormatEdit = (edit: FormatEdit | null) => {
+      if (!viewRef.current || !edit) return;
+      viewRef.current.dispatch({
+        changes: { from: edit.from, to: edit.to, insert: edit.insert },
+        selection: { anchor: edit.selectionFrom, head: edit.selectionTo },
+      });
+      viewRef.current.focus();
+    };
+
     // Expose imperative methods for topbar formatting
     useImperativeHandle(ref, () => ({
+      toggleInlineFormat: (kind: InlineToggleKind) => {
+        if (!viewRef.current) return;
+        const { state } = viewRef.current;
+        const { from, to } = state.selection.main;
+        dispatchFormatEdit(toggleInlineFormat(state.doc.toString(), from, to, kind));
+      },
       wrapSelection: (prefix: string, suffix: string) => {
         if (!viewRef.current) return;
         const { state } = viewRef.current;
