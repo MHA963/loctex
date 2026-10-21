@@ -608,6 +608,8 @@ export default function App() {
         onThemeChange={setTheme}
         mode={mode}
         onModeChange={setMode}
+        fileContent={fileContent}
+        selectedText={selectedText}
         activeFileName={activeFile}
         projectName={activeProject?.name || 'My Research'}
       />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   RotateCw,
   Bold,
@@ -10,6 +10,7 @@ import {
   ZoomIn,
   ZoomOut,
   Sparkles,
+  BarChart2,
   X,
   Minus,
   Square,
@@ -21,6 +22,11 @@ import {
   FontFamilyCommand,
   FontSizeCommand,
 } from '../utils/latex-format.ts';
+import {
+  DocumentStatistics,
+  computeDocumentStatistics,
+  countWords,
+} from '../utils/latex-stats.ts';
 
 interface HeaderPillProps {
   compileStatus: CompileStatus;
@@ -38,6 +44,9 @@ interface HeaderPillProps {
   onApplyFontFamily?: (family: FontFamilyCommand) => void;
   fontSizeCommand?: FontSizeCommand;
   onApplyFontSize?: (size: FontSizeCommand) => void;
+  documentStatistics?: DocumentStatistics;
+  fileContent?: string;
+  selectedText?: string;
   isBold: boolean;
   onToggleBold: () => void;
   isItalic: boolean;
@@ -70,6 +79,9 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onApplyFontFamily,
   fontSizeCommand,
   onApplyFontSize,
+  documentStatistics,
+  fileContent,
+  selectedText,
   isBold,
   onToggleBold,
   isItalic,
@@ -85,6 +97,15 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 }) => {
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+
+  const stats = useMemo(() => {
+    return documentStatistics ?? computeDocumentStatistics(fileContent ?? '');
+  }, [documentStatistics, fileContent]);
+
+  const selectedWordCount = useMemo(() => {
+    return selectedText ? countWords(selectedText) : 0;
+  }, [selectedText]);
 
   const currentFontFamily = fontFamilyCommand ?? 'default';
   const currentFamilyOption =
@@ -333,6 +354,107 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
               </>
             )}
           </select>
+
+          <span className="text-[var(--border-color-subtle)]">•</span>
+
+          {/* Document Statistics Summary Popover */}
+          <div className="relative">
+            <button
+              onClick={() => setStatsOpen(!statsOpen)}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors text-[10px] font-mono cursor-pointer"
+              title="View Document Statistics (Words, Headers, Figures, Math)"
+            >
+              <BarChart2 className="w-3 h-3 text-[var(--accent-primary)]" />
+              <span>{stats.words.toLocaleString()} words</span>
+            </button>
+
+            {statsOpen && (
+              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-80 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[var(--border-color-subtle)]">
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-[var(--text-primary)]">
+                    <BarChart2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                    <span>Document Statistics</span>
+                  </div>
+                  <button
+                    onClick={() => setStatsOpen(false)}
+                    className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded cursor-pointer"
+                    title="Close"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[var(--bg-secondary)] font-medium">
+                    <span className="text-[var(--text-primary)] font-semibold">Words</span>
+                    <span className="font-mono font-bold text-[var(--accent-primary)] text-xs">
+                      {stats.words.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Words in Text</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.wordsInText.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Words in Headers</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.wordsInHeaders.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Words outside text</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.wordsOutsideText.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="my-1 border-t border-[var(--border-color-subtle)]" />
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Number of headers</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.numberOfHeaders}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Number of figures</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.numberOfFigures}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Number of math inlines</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.numberOfMathInlines}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded hover:bg-[var(--bg-secondary)]/60">
+                    <span className="text-[var(--text-secondary)]">Number of math displayed</span>
+                    <span className="font-mono text-[var(--text-primary)] font-medium">
+                      {stats.numberOfMathDisplayed}
+                    </span>
+                  </div>
+
+                  {selectedWordCount > 0 && (
+                    <div className="mt-2 pt-1.5 border-t border-[var(--border-color-subtle)] flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+                      <span>Selection</span>
+                      <span className="font-mono font-semibold text-[var(--accent-primary)]">
+                        {selectedWordCount} {selectedWordCount === 1 ? 'word' : 'words'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
