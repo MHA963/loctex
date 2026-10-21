@@ -7,7 +7,13 @@ import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { tags as t } from '@lezer/highlight';
 import { DiagnosticError } from '../types/index.ts';
-import { FormatEdit, InlineToggleKind, toggleInlineFormat } from '../utils/latex-format.ts';
+import {
+  FormatEdit,
+  InlineToggleKind,
+  SelectionFormatState,
+  detectSelectionFormat,
+  toggleInlineFormat,
+} from '../utils/latex-format.ts';
 
 export interface PastedAssetPayload {
   fileName: string;
@@ -54,6 +60,7 @@ interface EditorPaneProps {
   activeLine?: number | null;
   onCompile?: () => void;
   onPasteAsset?: (payload: PastedAssetPayload) => Promise<string | null>;
+  onSelectionFormatChange?: (formatState: SelectionFormatState, selectedText: string) => void;
 }
 
 // Custom Vibrant LaTeX Highlight Style supporting all dynamic themes
@@ -71,11 +78,16 @@ const latexHighlightStyle = HighlightStyle.define([
 ]);
 
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
-  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile, onPasteAsset }, ref) => {
+  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile, onPasteAsset, onSelectionFormatChange }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onCompileRef = useRef(onCompile);
     const onPasteAssetRef = useRef(onPasteAsset);
+    const onSelectionFormatChangeRef = useRef(onSelectionFormatChange);
+
+    useEffect(() => {
+      onSelectionFormatChangeRef.current = onSelectionFormatChange;
+    }, [onSelectionFormatChange]);
 
     useEffect(() => {
       onCompileRef.current = onCompile;
@@ -312,6 +324,14 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
             if (update.docChanged) {
               const newDoc = update.state.doc.toString();
               onChange(newDoc);
+            }
+            if ((update.docChanged || update.selectionSet) && onSelectionFormatChangeRef.current) {
+              const { from, to } = update.state.selection.main;
+              const documentText = update.state.doc.toString();
+              onSelectionFormatChangeRef.current(
+                detectSelectionFormat(documentText, from, to),
+                documentText.slice(from, to)
+              );
             }
           }),
         ],

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HeaderPill } from './components/HeaderPill.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
@@ -21,6 +21,7 @@ import {
   VersionSnapshot,
   WorkspaceMode,
 } from './types/index.ts';
+import { SelectionFormatState } from './utils/latex-format.ts';
 
 export default function App() {
   const editorRef = useRef<EditorPaneRef | null>(null);
@@ -36,10 +37,33 @@ export default function App() {
   // Typography Settings
   const [fontFamily, setFontFamily] = useState<FontFamily>('EB Garamond');
   const [fontSize, setFontSize] = useState('11pt');
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
-  const [isUnderline, setIsUnderline] = useState(false);
   const [isCode, setIsCode] = useState(false);
+
+  // Live formatting state derived from the CodeMirror selection (drives B / I / U / font / size toolbar)
+  const [selectionFormat, setSelectionFormat] = useState<SelectionFormatState>({
+    bold: false,
+    italic: false,
+    underline: false,
+    fontFamily: 'default',
+    fontSize: 'normalsize',
+  });
+  const [selectedText, setSelectedText] = useState('');
+  const isBold = selectionFormat.bold;
+  const isItalic = selectionFormat.italic;
+  const isUnderline = selectionFormat.underline;
+
+  const handleSelectionFormatChange = useCallback((formatState: SelectionFormatState, selection: string) => {
+    setSelectionFormat((previous) =>
+      previous.bold === formatState.bold &&
+      previous.italic === formatState.italic &&
+      previous.underline === formatState.underline &&
+      previous.fontFamily === formatState.fontFamily &&
+      previous.fontSize === formatState.fontSize
+        ? previous
+        : formatState
+    );
+    setSelectedText(selection);
+  }, []);
 
   // Compilation & Zoom State
   const [compileStatus, setCompileStatus] = useState<CompileStatus>('ready');
@@ -655,6 +679,7 @@ export default function App() {
                 activeLine={activeLine}
                 onCompile={() => triggerCompile()}
                 onPasteAsset={handlePasteAssetInEditor}
+                onSelectionFormatChange={handleSelectionFormatChange}
               />
             )}
           </div>
