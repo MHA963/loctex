@@ -9,7 +9,12 @@ import { TectonicRunner } from './compiler/tectonic-runner.ts';
 import { ZipService } from './services/zip-service.ts';
 import { SyncTeXParser } from './services/synctex-parser.ts';
 import { OllamaQwenService } from './services/ollama-service.ts';
-import { AIDiagnosticFixRequest, AIFastEditRequest, QwenModelId } from '../src/types/index.ts';
+import {
+  AIChatRequest,
+  AIDiagnosticFixRequest,
+  AIFastEditRequest,
+  QwenModelId,
+} from '../src/types/index.ts';
 
 const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
 
@@ -624,6 +629,52 @@ fastify.get('/api/projects/:id/synctex', async (request, reply) => {
   return { boxes };
 });
 
+// --- Project Chat Persistence API ---
+fastify.get('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  const messages = await db.listProjectChats(id);
+  return { messages };
+});
+
+fastify.post('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  const body = (request.body || {}) as {
+    id?: string;
+    role?: 'user' | 'assistant' | 'system';
+    content?: string;
+    model?: string;
+    intent?: string;
+  };
+
+  if (!body.role || !body.content) {
+    return reply.status(400).send({ error: 'Missing role or content' });
+  }
+
+  const messageId = body.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  await db.saveProjectChat({
+    id: messageId,
+    project_id: id,
+    role: body.role,
+    content: body.content,
+    model: body.model,
+    intent: body.intent,
+  });
+
+  return { success: true, messageId };
+});
+
+fastify.delete('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  await db.clearProjectChats(id);
+  return { success: true };
+});
+
 // --- Daily Journals API ---
 fastify.get('/api/journals', async () => {
   const journals = await db.listJournals();
@@ -678,6 +729,42 @@ fastify.post('/api/ai/fast-edit', async (request, reply) => {
     return reply.status(400).send({ error: 'Missing instruction or fileContent payload' });
   }
   return await aiService.fastEdit(body);
+});
+
+fastify.post('/api/ai/chat', async (request, reply) => {
+  const body = (request.body || {}) as AIChatRequest;
+  if (!body.message || typeof body.message !== 'string') {
+    return reply.status(400).send({ error: 'Missing message payload' });
+  }
+
+  const response = await aiService.chat(body);
+
+  if (body.projectId) {
+    const userMsgId = `msg-${Date.now()}-u`;
+    const asstMsgId = `msg-${Date.now() + 1}-a`;
+
+    await db.saveProjectChat({
+      id: userMsgId,
+      project_id: body.projectId,
+      role: 'user',
+      content: body.message,
+      model: body.model || aiService.getActiveModel(),
+      intent: body.intent || 'ask',
+    });
+
+    await db.saveProjectChat({
+      id: asstMsgId,
+      project_id: body.projectId,
+      role: 'assistant',
+      content: response.reply,
+      model: response.model,
+      intent: response.intent,
+    });
+
+    response.messageId = asstMsgId;
+  }
+
+  return response;
 });
 
 // --- Static Asset Serving (Production & Packaged Desktop Bundle) ---

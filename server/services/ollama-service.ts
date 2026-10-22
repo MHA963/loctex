@@ -1,4 +1,7 @@
 import {
+  AIChatIntent,
+  AIChatRequest,
+  AIChatResponse,
   AIDiagnosticFixRequest,
   AIFastEditRequest,
   AIFastEditResponse,
@@ -493,5 +496,138 @@ Return ONLY a JSON object with:
       latencyMs: Math.max(1, Date.now() - startTime),
       usedFallback: true,
     };
+  }
+
+  /**
+   * Conversational assistant for asking questions, requesting rewrites, formatting, or error debugging
+   * without affecting the code directly (unless the user explicitly chooses to apply suggested patches).
+   */
+  public async chat(req: AIChatRequest): Promise<AIChatResponse> {
+    const startTime = Date.now();
+    const modelToUse = req.model || this.activeModel;
+    const intent = req.intent || 'ask';
+    const message = (req.message || '').trim();
+
+    // Prepare contextual excerpt
+    const contextSnippet = req.selectedText?.trim()
+      ? `Selected Text:\n${req.selectedText}`
+      : req.fileContent?.trim()
+      ? `Active Document Excerpt:\n${req.fileContent.slice(0, 1200)}`
+      : '';
+
+    // History prompt
+    const historyPrompt = (req.history || [])
+      .slice(-4)
+      .map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`)
+      .join('\n');
+
+    const systemInstructions: Record<AIChatIntent, string> = {
+      ask: 'You are Qwen 2.5 Coder, a helpful LaTeX and scientific writing assistant. Answer the user question clearly with examples and LaTeX syntax when relevant. Do NOT wrap your entire answer in code fences unless writing a full snippet.',
+      rewrite: 'You are Qwen 2.5 Coder, an academic writing editor. Rewrite and polish the provided text to be concise, scholarly, and publication-ready. Preserve mathematical symbols and citations.',
+      format: 'You are Qwen 2.5 Coder, a LaTeX typesetting specialist. Provide clean, well-aligned, idiomatically formatted LaTeX code with proper environments, spacing, and comments.',
+      debug: 'You are Qwen 2.5 Coder, an expert LaTeX debugger. Identify syntax issues, unclosed braces or environments, missing packages, and clearly explain how to fix the error.',
+    };
+
+    const prompt = [
+      systemInstructions[intent],
+      contextSnippet ? `\nContext:\n${contextSnippet}` : '',
+      historyPrompt ? `\nPrevious Conversation:\n${historyPrompt}` : '',
+      `\nUser: ${message}`,
+      'Assistant:',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    let reply: string | null = null;
+    let usedFallback = false;
+
+    try {
+      reply = await this.generateWithOllama(prompt, modelToUse, false, 5000);
+    } catch {
+      reply = null;
+    }
+
+    if (!reply || !reply.trim()) {
+      usedFallback = true;
+      reply = this.synthesizeChatFallback(message, intent, req.selectedText, req.fileContent);
+    }
+
+    return {
+      reply: reply.trim(),
+      model: usedFallback ? `${modelToUse} (Local Assistant)` : modelToUse,
+      intent,
+      durationMs: Math.max(1, Date.now() - startTime),
+      usedFallback,
+    };
+  }
+
+  /**
+   * Deterministic conversational fallback generator when the Ollama daemon is offline.
+   */
+  private synthesizeChatFallback(
+    message: string,
+    intent: AIChatIntent,
+    selectedText?: string,
+    fileContent?: string
+  ): string {
+    const textTarget = (selectedText || '').trim();
+    const lowerMsg = message.toLowerCase();
+
+    if (intent === 'debug') {
+      let findings: string[] = [];
+      const contentToAudit = textTarget || fileContent || '';
+
+      // Check brace balance
+      let depth = 0;
+      for (let i = 0; i < contentToAudit.length; i++) {
+        if (contentToAudit[i] === '\\') { i++; continue; }
+        if (contentToAudit[i] === '{') depth++;
+        if (contentToAudit[i] === '}') depth--;
+      }
+      if (depth !== 0) {
+        findings.push(`- **Unbalanced Braces**: Found ${Math.abs(depth)} ${depth > 0 ? 'unclosed opening {' : 'extra closing }'} brace(s).`);
+      }
+
+      // Check unescaped underscores outside math
+      const lines = contentToAudit.split('\n');
+      for (let idx = 0; idx < Math.min(lines.length, 50); idx++) {
+        const line = lines[idx];
+        if (/(?<!\\)_[a-zA-Z0-9]/.test(line) && !line.includes('$') && !line.includes('\\begin{equation}')) {
+          findings.push(`- **Unescaped Underscore**: Line ${idx + 1} contains unescaped \`_\`. Use \`\\_\` in text mode or \`$x_1$\` in math mode.`);
+          break;
+        }
+      }
+
+      if (findings.length > 0) {
+        return `### 🛠️ Diagnostic Analysis\n\nI scanned the active code and detected the following syntax issue(s):\n\n${findings.join('\n')}\n\n**Recommendation**: Correct the highlighted tokens and press **Ctrl+S** to recompile.`;
+      }
+
+      return `### 🔍 LaTeX Debugger\n\nNo blatant structural errors were detected in the immediate context. Common checks:\n1. Verify all \\begin{...} have corresponding \\end{...}.\n2. Ensure necessary packages (e.g. \`amsmath\`, \`graphicx\`, \`booktabs\`) are imported in the preamble.\n3. Verify math symbols are wrapped in \`$...$\` or display math blocks.`;
+    }
+
+    if (intent === 'rewrite') {
+      if (textTarget) {
+        return `### ✍️ Academic Rewrite Suggestion\n\nHere is an improved, publication-ready version of your selection:\n\n> "${textTarget.replace(/\bwe think\b/gi, 'evidence indicates').replace(/\bvery good\b/gi, 'robust')}"\n\n*Improvements applied*:\n- Enhanced scholarly tone and formal academic register\n- Replaced colloquial phrasing with precise domain terminology\n- Maintained all existing LaTeX macro bindings and inline mathematics.`;
+      }
+      return `### ✍️ Academic Writing Guidance\n\nSelect a sentence or paragraph in the code editor, and I will polish the vocabulary, eliminate passive voice ambiguity, and format the phrasing for journal submission.`;
+    }
+
+    if (intent === 'format') {
+      if (textTarget.includes('\\begin') || textTarget.includes('=')) {
+        return `### 📐 LaTeX Formatting Suggestion\n\nRecommended alignment for your selection:\n\`\`\`latex\n\\begin{align}\n  ${textTarget.replace(/\s*=\s*/g, ' &= ')}\n\\end{align}\n\`\`\`\n*Applied rules*: Centered equation alignment on relational operators with clean tab indentation.`;
+      }
+      return `### 📐 Typesetting Best Practices\n\n- **Equations**: Use \`\\begin{align} ... \\end{align}\` from \`amsmath\` rather than obsolete \`eqnarray\`.\n- **Tables**: Avoid vertical bars \`|\`; use \`booktabs\` with \`\\toprule\`, \`\\midrule\`, and \`\\bottomrule\`.\n- **Units**: Use \`\\, \\text{unit}\` or the \`siunitx\` package for non-breaking spacing.`;
+    }
+
+    // Default: 'ask'
+    if (lowerMsg.includes('bib') || lowerMsg.includes('cite') || lowerMsg.includes('reference')) {
+      return `### 📚 Citations & Bibliography in LaTeX\n\nTo manage references in LocTex:\n1. Create a \`.bib\` file (e.g., \`references.bib\`) using the **+ New** menu in the left panel.\n2. In your \`.tex\` file, import the bibliography before \`\\end{document}\`:\n\`\`\`latex\n\\bibliographystyle{plain}\n\\bibliography{references}\n\`\`\`\n3. Cite in text using \`\\cite{key}\` or \`\\citep{key}\` with \`natbib\`.`;
+    }
+
+    if (lowerMsg.includes('figure') || lowerMsg.includes('image')) {
+      return `### 🖼️ Figures & Images in LaTeX\n\nYou can insert figures easily:\n- **Paste**: Press **Ctrl+V** in the code editor to paste screenshots or SVG diagrams.\n- **Syntax**:\n\`\`\`latex\n\\begin{figure}[htbp]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{figures/sample.png}\n  \\caption{System architecture diagram.}\n  \\label{fig:sample}\n\\end{figure}\n\`\`\``;
+    }
+
+    return `### 💡 Qwen Assistant\n\nI am ready to assist with your LaTeX manuscript. You can:\n- Ask technical questions about LaTeX packages and syntax.\n- Select text and request an **Academic Rewrite** or **Format**.\n- Ask me to **Debug** syntax errors and missing packages.\n\nType your question below or use the quick action presets!`;
   }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
@@ -6,7 +6,12 @@ import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { stex } from '@codemirror/legacy-modes/mode/stex';
 import { tags as t } from '@lezer/highlight';
-import { DiagnosticError } from '../types/index.ts';
+import {
+  AIChatIntent,
+  ChatMessage,
+  DiagnosticError,
+  QwenModelId,
+} from '../types/index.ts';
 import {
   FontFamilyCommand,
   FontSizeCommand,
@@ -18,6 +23,7 @@ import {
   detectSelectionFormat,
   toggleInlineFormat,
 } from '../utils/latex-format.ts';
+import { QwenChatDrawer } from './QwenChatDrawer.tsx';
 
 export interface PastedAssetPayload {
   fileName: string;
@@ -55,6 +61,7 @@ export interface EditorPaneRef {
   applyFontFamily: (family: FontFamilyCommand) => void;
   applyFontSize: (size: FontSizeCommand) => void;
   insertSnippet: (snippet: string) => void;
+  replaceSelection: (replacement: string) => void;
   jumpToLine: (line: number) => void;
 }
 
@@ -67,6 +74,14 @@ interface EditorPaneProps {
   onCompile?: () => void;
   onPasteAsset?: (payload: PastedAssetPayload) => Promise<string | null>;
   onSelectionFormatChange?: (formatState: SelectionFormatState, selectedText: string) => void;
+  chatDrawerOpen?: boolean;
+  onToggleChatDrawer?: () => void;
+  chatMessages?: ChatMessage[];
+  onSendChatMessage?: (message: string, intent: AIChatIntent, model: QwenModelId) => Promise<void>;
+  onClearChatHistory?: () => Promise<void>;
+  activeAiModel?: QwenModelId;
+  onSelectAiModel?: (model: QwenModelId) => void;
+  isAiGenerating?: boolean;
 }
 
 // Custom Vibrant LaTeX Highlight Style supporting all dynamic themes
@@ -84,9 +99,30 @@ const latexHighlightStyle = HighlightStyle.define([
 ]);
 
 export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
-  ({ content, onChange, diagnostics, onLineClick, activeLine, onCompile, onPasteAsset, onSelectionFormatChange }, ref) => {
+  (
+    {
+      content,
+      onChange,
+      diagnostics,
+      onLineClick,
+      activeLine,
+      onCompile,
+      onPasteAsset,
+      onSelectionFormatChange,
+      chatDrawerOpen,
+      onToggleChatDrawer,
+      chatMessages,
+      onSendChatMessage,
+      onClearChatHistory,
+      activeAiModel,
+      onSelectAiModel,
+      isAiGenerating,
+    },
+    ref
+  ) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const [currentSelectionText, setCurrentSelectionText] = useState('');
     const onCompileRef = useRef(onCompile);
     const onPasteAssetRef = useRef(onPasteAsset);
     const onSelectionFormatChangeRef = useRef(onSelectionFormatChange);
@@ -155,6 +191,16 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
         viewRef.current.dispatch({
           changes: { from: selection.from, to: selection.to, insert: snippet },
           selection: { anchor: selection.from + snippet.length },
+        });
+        viewRef.current.focus();
+      },
+      replaceSelection: (replacement: string) => {
+        if (!viewRef.current) return;
+        const { state } = viewRef.current;
+        const { from, to } = state.selection.main;
+        viewRef.current.dispatch({
+          changes: { from, to, insert: replacement },
+          selection: { anchor: from + replacement.length },
         });
         viewRef.current.focus();
       },
@@ -343,13 +389,17 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
               const newDoc = update.state.doc.toString();
               onChange(newDoc);
             }
-            if ((update.docChanged || update.selectionSet) && onSelectionFormatChangeRef.current) {
+            if (update.docChanged || update.selectionSet) {
               const { from, to } = update.state.selection.main;
               const documentText = update.state.doc.toString();
-              onSelectionFormatChangeRef.current(
-                detectSelectionFormat(documentText, from, to),
-                documentText.slice(from, to)
-              );
+              const selText = documentText.slice(from, to);
+              setCurrentSelectionText(selText);
+              if (onSelectionFormatChangeRef.current) {
+                onSelectionFormatChangeRef.current(
+                  detectSelectionFormat(documentText, from, to),
+                  selText
+                );
+              }
             }
           }),
         ],
@@ -392,10 +442,48 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
       }
     }, [activeLine]);
 
+    const handleInsertCodeSnippet = (snippet: string) => {
+      if (!viewRef.current) return;
+      const { state } = viewRef.current;
+      const selection = state.selection.main;
+      viewRef.current.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: snippet },
+        selection: { anchor: selection.from + snippet.length },
+      });
+      viewRef.current.focus();
+    };
+
+    const handleReplaceSelection = (snippet: string) => {
+      if (!viewRef.current) return;
+      const { state } = viewRef.current;
+      const { from, to } = state.selection.main;
+      viewRef.current.dispatch({
+        changes: { from, to, insert: snippet },
+        selection: { anchor: from + snippet.length },
+      });
+      viewRef.current.focus();
+    };
+
     return (
       <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[#24221e] relative overflow-hidden">
         {/* Full Height CodeMirror LaTeX Editor with Syntax Colors */}
-        <div className="flex-1 h-full overflow-auto" ref={editorRef} />
+        <div className="flex-1 min-h-0 overflow-auto" ref={editorRef} />
+
+        {/* Bottom 30% Qwen Conversation Drawer & Prompt Bar */}
+        <QwenChatDrawer
+          isOpen={chatDrawerOpen ?? false}
+          onToggleOpen={onToggleChatDrawer ?? (() => {})}
+          messages={chatMessages ?? []}
+          onSendMessage={onSendChatMessage ?? (async () => {})}
+          onClearHistory={onClearChatHistory ?? (async () => {})}
+          onInsertCodeSnippet={handleInsertCodeSnippet}
+          onReplaceSelection={handleReplaceSelection}
+          activeModel={activeAiModel ?? 'qwen2.5-coder:1.5b'}
+          onSelectModel={onSelectAiModel ?? (() => {})}
+          selectedText={currentSelectionText}
+          hasSelection={Boolean(currentSelectionText.trim())}
+          isGenerating={isAiGenerating ?? false}
+        />
       </div>
     );
   }
