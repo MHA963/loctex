@@ -130,12 +130,12 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
   return (
     <header 
-      className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-3 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)]"
+      className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-2.5 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)] w-full overflow-hidden"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Window Controls & Qwen AI Shortcut */}
-      <div className="flex items-center gap-2 w-1/4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="flex items-center gap-1.5 pl-1 group/traffic">
+      <div className="flex items-center gap-2 flex-shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="flex items-center gap-1.5 pl-0.5 group/traffic">
           <button
             onClick={() => window.electronAPI?.close()}
             className="w-3.5 h-3.5 rounded-full bg-[#ff5f56] hover:bg-[#e0443e] border border-[#e0443e] flex items-center justify-center shadow-sm cursor-pointer transition-all hover:scale-110 text-[#4c0000] opacity-85 hover:opacity-100"
@@ -162,18 +162,18 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
         {onOpenQwenAssistant && (
           <button
             onClick={onOpenQwenAssistant}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/40 text-[10px] font-mono transition-colors shadow-sm"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/40 text-[10px] font-mono transition-colors shadow-sm"
             title="Open Qwen 2.5 Coder Fast-Edit & Diagnostics (Ctrl+K)"
           >
             <Sparkles className="w-3 h-3 text-[var(--accent-primary)]" />
-            <span>Qwen 2.5</span>
+            <span className="hidden sm:inline">Qwen 2.5</span>
           </button>
         )}
       </div>
 
-      {/* Floating Center Pill */}
-      <div className="flex items-center justify-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-3.5 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-2.5">
+      {/* Floating Center Pill (Flexibly fits smaller windows without overflowing) */}
+      <div className="flex items-center justify-center min-w-0 mx-1 flex-shrink" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-2 sm:px-3 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-1.5 sm:gap-2.5 max-w-full overflow-hidden">
           {/* Compile Status & Trigger */}
           <div className="flex items-center gap-1.5 font-mono text-[10px]">
             <span className="text-[var(--text-muted)]">[LocTex • v1.4</span>
@@ -458,14 +458,16 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
         </div>
       </div>
 
-      {/* Right Title & Theme Switcher */}
-      <div className="flex items-center justify-end gap-2.5 w-1/4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <span className="text-[11px] text-[var(--text-muted)] truncate">
+      {/* Right Title & Theme Switcher (Draggable background so empty space allows easy window dragging) */}
+      <div className="flex items-center justify-end gap-2 flex-shrink-0 ml-auto pr-1">
+        <span 
+          className="text-[11px] text-[var(--text-muted)] truncate max-w-[160px] lg:max-w-xs pointer-events-none"
+        >
           LocTex - {activeFileName} ({projectName})
         </span>
 
         {/* Theme Dot */}
-        <div className="relative">
+        <div className="relative" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
             className="p-1 rounded-full hover:bg-[var(--bg-surface-hover)] transition-colors"

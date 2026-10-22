@@ -34,8 +34,8 @@ export default function App() {
   const editorRef = useRef<EditorPaneRef | null>(null);
   const pdfCanvasRef = useRef<PdfCanvasRef | null>(null);
 
-  // View State: 'dashboard' | 'studio'
-  const [currentView, setCurrentView] = useState<'dashboard' | 'studio'>('studio');
+  // View State: 'dashboard' | 'studio' - always start on dashboard on launch
+  const [currentView, setCurrentView] = useState<'dashboard' | 'studio'>('dashboard');
 
   // Theme & Mode State
   const [theme, setTheme] = useState<ThemeName>('dark-gold');
@@ -207,16 +207,17 @@ export default function App() {
   const handleClearChatHistory = async () => {
     if (!activeProject) return;
     const projectId = activeProject.id;
-    try {
-      await fetch(`/api/projects/${projectId}/chat`, { method: 'DELETE' });
-    } catch (err) {
-      console.error('Failed to clear chat on server:', err);
-    }
+    // Immediately clear state and local storage for immediate UI update
     setProjectChats((prev) => ({ ...prev, [projectId]: [] }));
     try {
       localStorage.removeItem(`loctex_chat_${projectId}`);
     } catch {
       // ignore
+    }
+    try {
+      await fetch(`/api/projects/${projectId}/chat`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to clear chat on server:', err);
     }
   };
 
@@ -230,7 +231,7 @@ export default function App() {
     }
   }, [theme]);
 
-  // Load projects on mount
+  // Load projects on mount - keep initial view on dashboard
   const loadProjects = async () => {
     try {
       const res = await fetch('/api/projects');
@@ -238,7 +239,8 @@ export default function App() {
       if (data.projects && data.projects.length > 0) {
         setProjects(data.projects);
         if (!activeProject) {
-          selectProject(data.projects[0], false);
+          // Pre-load background files without leaving dashboard
+          selectProject(data.projects[0], false, false);
         }
       } else {
         const createRes = await fetch('/api/projects', {
@@ -248,7 +250,7 @@ export default function App() {
         });
         const newProj = await createRes.json();
         setProjects([newProj]);
-        selectProject(newProj, false);
+        selectProject(newProj, false, false);
       }
     } catch (e) {
       console.error('Failed to load projects from server:', e);
@@ -283,9 +285,11 @@ export default function App() {
   };
 
   // Select project & load files (no auto-compile by default; compile only on user action or Ctrl+S)
-  const selectProject = async (project: Project, autoCompile = false) => {
+  const selectProject = async (project: Project, autoCompile = false, navigateToStudio = true) => {
     setActiveProject(project);
-    setCurrentView('studio');
+    if (navigateToStudio) {
+      setCurrentView('studio');
+    }
     setPdfVersion(Date.now());
     try {
       const filesRes = await fetch(`/api/projects/${project.id}/files`);

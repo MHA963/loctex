@@ -57,7 +57,49 @@ export const QwenChatDrawer: React.FC<QwenChatDrawerProps> = ({
   const [inputText, setInputText] = useState('');
   const [selectedIntent, setSelectedIntent] = useState<AIChatIntent>('ask');
   const [copiedSnippetIdx, setCopiedSnippetIdx] = useState<string | null>(null);
+  const [drawerHeight, setDrawerHeight] = useState<number>(240); // default height in pixels
+  const [isResizing, setIsResizing] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const startDragRef = useRef<{ startY: number; startHeight: number }>({ startY: 0, startHeight: 240 });
+
+  // Prism-style vertical drag-to-resize handlers
+  const handleMouseDownResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!isOpen) {
+      onToggleOpen();
+    }
+    setIsResizing(true);
+    startDragRef.current = {
+      startY: e.clientY,
+      startHeight: drawerHeight,
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      // Moving up increases drawer height
+      const deltaY = startDragRef.current.startY - e.clientY;
+      const newHeight = Math.min(Math.max(160, startDragRef.current.startHeight + deltaY), window.innerHeight * 0.85);
+      setDrawerHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+      }
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom of messages thread when new messages arrive
@@ -108,6 +150,7 @@ export const QwenChatDrawer: React.FC<QwenChatDrawerProps> = ({
 
   // Helper to extract and render markdown / LaTeX code blocks inside responses
   const renderMessageContent = (content: string, msgId: string) => {
+    // Check for fenced code blocks (```latex ... ``` or ``` ... ```)
     const codeBlockRegex = /```(?:latex|tex)?\n([\s\S]*?)```/g;
     const parts = [];
     let lastIndex = 0;
@@ -134,6 +177,40 @@ export const QwenChatDrawer: React.FC<QwenChatDrawerProps> = ({
         type: 'text',
         content: content.slice(lastIndex),
       });
+    }
+
+    // If no fenced code blocks were found, but the response looks like raw LaTeX environment
+    if (parts.length === 1 && parts[0].type === 'text') {
+      const rawText = parts[0].content || '';
+      const hasLatexMacros = /\\(?:begin|textbf|textit|frac|equation|align|section|cite)\b/.test(rawText);
+      if (hasLatexMacros && (onInsertCodeSnippet || onReplaceSelection)) {
+        return (
+          <div className="space-y-2 text-xs leading-relaxed text-[var(--text-primary)]">
+            <p className="whitespace-pre-wrap select-text font-sans">{rawText}</p>
+            <div className="flex items-center gap-1.5 pt-1 border-t border-[var(--border-color-subtle)]">
+              {onInsertCodeSnippet && (
+                <button
+                  onClick={() => onInsertCodeSnippet(rawText)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--accent-primary)]/15 hover:bg-[var(--accent-primary)]/25 text-[var(--accent-primary)] font-semibold transition-colors cursor-pointer text-[10px]"
+                  title="Insert full response into editor at cursor"
+                >
+                  <Code2 className="w-2.5 h-2.5" />
+                  <span>Insert Response</span>
+                </button>
+              )}
+              {onReplaceSelection && hasSelection && (
+                <button
+                  onClick={() => onReplaceSelection(rawText)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-semibold transition-colors cursor-pointer text-[10px]"
+                  title="Replace selection with full response"
+                >
+                  <span>Replace Selection</span>
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
     }
 
     return (
@@ -195,10 +272,20 @@ export const QwenChatDrawer: React.FC<QwenChatDrawerProps> = ({
 
   return (
     <div
-      className={`border-t border-[var(--border-color)] bg-[var(--bg-surface)] flex flex-col transition-all duration-200 z-20 ${
-        isOpen ? 'h-[30%] min-h-[190px] shadow-lg' : 'h-10'
+      style={isOpen ? { height: `${drawerHeight}px` } : undefined}
+      className={`border-t border-[var(--border-color)] bg-[var(--bg-surface)] flex flex-col z-20 relative select-none ${
+        isOpen ? 'min-h-[160px] shadow-2xl transition-[height] duration-75' : 'h-10 transition-all duration-150'
       }`}
     >
+      {/* Draggable Vertical Resize Handle (OpenAI Prism Style - Pull Upwards) */}
+      <div
+        onMouseDown={handleMouseDownResize}
+        className="absolute -top-1.5 left-0 right-0 h-3 cursor-row-resize flex items-center justify-center group z-30 select-none hover:bg-[var(--accent-primary)]/20 transition-colors"
+        title="Drag up/down to resize conversation drawer (OpenAI Prism style)"
+      >
+        <div className="w-12 h-1 rounded-full bg-[var(--border-color)] group-hover:bg-[var(--accent-primary)] transition-colors shadow-sm" />
+      </div>
+
       {/* Drawer Header & Quick Action Bar */}
       <div className="h-10 px-3 bg-[var(--bg-secondary)] flex items-center justify-between border-b border-[var(--border-color-subtle)] select-none">
         {/* Left: Brand badge & Model selector */}
