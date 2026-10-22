@@ -140,6 +140,42 @@ export interface AIDiagnosticFixRequest {
   model?: QwenModelId;
 }
 
+export type AIChatIntent = 'ask' | 'rewrite' | 'format' | 'debug';
+
+export interface ChatMessage {
+  id: string;
+  projectId?: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  model?: string;
+  intent?: AIChatIntent;
+  createdAt: string;
+}
+
+export interface AIChatRequest {
+  message: string;
+  intent?: AIChatIntent;
+  projectId?: string;
+  fileContent?: string;
+  selectedText?: string;
+  activeLine?: number;
+  model?: QwenModelId;
+  history?: { role: 'user' | 'assistant'; content: string }[];
+}
+
+export interface AIChatResponse {
+  reply: string;
+  model: string;
+  intent: AIChatIntent;
+  suggestedPatch?: {
+    search: string;
+    replace: string;
+  };
+  durationMs: number;
+  usedFallback: boolean;
+  messageId?: string;
+}
+
 export interface ElectronAPI {
   minimize: () => Promise<void>;
   maximize: () => Promise<void>;

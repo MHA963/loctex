@@ -9,7 +9,12 @@ import { TectonicRunner } from './compiler/tectonic-runner.ts';
 import { ZipService } from './services/zip-service.ts';
 import { SyncTeXParser } from './services/synctex-parser.ts';
 import { OllamaQwenService } from './services/ollama-service.ts';
-import { AIDiagnosticFixRequest, AIFastEditRequest, QwenModelId } from '../src/types/index.ts';
+import {
+  AIChatRequest,
+  AIDiagnosticFixRequest,
+  AIFastEditRequest,
+  QwenModelId,
+} from '../src/types/index.ts';
 
 const fastify = Fastify({ logger: true, bodyLimit: 50 * 1024 * 1024 });
 
@@ -724,6 +729,42 @@ fastify.post('/api/ai/fast-edit', async (request, reply) => {
     return reply.status(400).send({ error: 'Missing instruction or fileContent payload' });
   }
   return await aiService.fastEdit(body);
+});
+
+fastify.post('/api/ai/chat', async (request, reply) => {
+  const body = (request.body || {}) as AIChatRequest;
+  if (!body.message || typeof body.message !== 'string') {
+    return reply.status(400).send({ error: 'Missing message payload' });
+  }
+
+  const response = await aiService.chat(body);
+
+  if (body.projectId) {
+    const userMsgId = `msg-${Date.now()}-u`;
+    const asstMsgId = `msg-${Date.now() + 1}-a`;
+
+    await db.saveProjectChat({
+      id: userMsgId,
+      project_id: body.projectId,
+      role: 'user',
+      content: body.message,
+      model: body.model || aiService.getActiveModel(),
+      intent: body.intent || 'ask',
+    });
+
+    await db.saveProjectChat({
+      id: asstMsgId,
+      project_id: body.projectId,
+      role: 'assistant',
+      content: response.reply,
+      model: response.model,
+      intent: response.intent,
+    });
+
+    response.messageId = asstMsgId;
+  }
+
+  return response;
 });
 
 // --- Static Asset Serving (Production & Packaged Desktop Bundle) ---
