@@ -12,11 +12,14 @@ import { QwenAssistantModal } from './components/QwenAssistantModal.tsx';
 import {
   AIFastEditResponse,
   CompileStatus,
+  AIChatIntent,
+  ChatMessage,
   DiagnosticError,
   FileItem,
   FontFamily,
   JournalEntry,
   Project,
+  QwenModelId,
   ThemeName,
   VersionSnapshot,
   WorkspaceMode,
@@ -95,10 +98,127 @@ export default function App() {
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [activeDate, setActiveDate] = useState('2026-10-11');
 
-  // Modals
+  // Modals & Drawers
   const [importZipOpen, setImportZipOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [qwenModalOpen, setQwenModalOpen] = useState(false);
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [activeAiModel, setActiveAiModel] = useState<QwenModelId>('qwen2.5-coder:1.5b');
+  const [projectChats, setProjectChats] = useState<Record<string, ChatMessage[]>>({});
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+
+  // Load and cache project chat messages
+  const loadProjectChats = useCallback(async (projectId: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chat`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.messages)) {
+          setProjectChats((prev) => ({ ...prev, [projectId]: data.messages }));
+          try {
+            localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(data.messages));
+          } catch {
+            // ignore
+          }
+          return;
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    try {
+      const local = localStorage.getItem(`loctex_chat_${projectId}`);
+      if (local) {
+        setProjectChats((prev) => ({ ...prev, [projectId]: JSON.parse(local) }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeProject?.id) {
+      loadProjectChats(activeProject.id);
+    }
+  }, [activeProject?.id, loadProjectChats]);
+
+  const handleSendChatMessage = async (message: string, intent: AIChatIntent, model: QwenModelId) => {
+    if (!activeProject) return;
+    const projectId = activeProject.id;
+    const userMsgId = `msg-${Date.now()}-u`;
+    const userMsg: ChatMessage = {
+      id: userMsgId,
+      projectId,
+      role: 'user',
+      content: message,
+      model,
+      intent,
+      createdAt: new Date().toISOString(),
+    };
+
+    const currentHistory = projectChats[projectId] || [];
+    const updatedWithUser = [...currentHistory, userMsg];
+    setProjectChats((prev) => ({ ...prev, [projectId]: updatedWithUser }));
+    setIsAiGenerating(true);
+
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          message,
+          intent,
+          model,
+          fileContent,
+          selectedText,
+          history: currentHistory.slice(-4).map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const asstMsg: ChatMessage = {
+          id: data.messageId || `msg-${Date.now()}-a`,
+          projectId,
+          role: 'assistant',
+          content: data.reply,
+          model: data.model || model,
+          intent: data.intent || intent,
+          createdAt: new Date().toISOString(),
+        };
+
+        const finalMessages = [...updatedWithUser, asstMsg];
+        setProjectChats((prev) => ({ ...prev, [projectId]: finalMessages }));
+        try {
+          localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(finalMessages));
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send chat message:', err);
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleClearChatHistory = async () => {
+    if (!activeProject) return;
+    const projectId = activeProject.id;
+    try {
+      await fetch(`/api/projects/${projectId}/chat`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to clear chat on server:', err);
+    }
+    setProjectChats((prev) => ({ ...prev, [projectId]: [] }));
+    try {
+      localStorage.removeItem(`loctex_chat_${projectId}`);
+    } catch {
+      // ignore
+    }
+  };
 
   // Apply theme class to document body
   useEffect(() => {
@@ -587,7 +707,7 @@ export default function App() {
         onZoomChange={setZoom}
         onFitWidth={handleFitWidth}
         onCompile={() => triggerCompile()}
-        onOpenQwenAssistant={() => setQwenModalOpen(true)}
+        onOpenQwenAssistant={() => setChatDrawerOpen((prev) => !prev)}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
         fontFamilyCommand={selectionFormat.fontFamily}
@@ -692,6 +812,14 @@ export default function App() {
                 onCompile={() => triggerCompile()}
                 onPasteAsset={handlePasteAssetInEditor}
                 onSelectionFormatChange={handleSelectionFormatChange}
+                chatDrawerOpen={chatDrawerOpen}
+                onToggleChatDrawer={() => setChatDrawerOpen(!chatDrawerOpen)}
+                chatMessages={activeProject ? projectChats[activeProject.id] || [] : []}
+                onSendChatMessage={handleSendChatMessage}
+                onClearChatHistory={handleClearChatHistory}
+                activeAiModel={activeAiModel}
+                onSelectAiModel={setActiveAiModel}
+                isAiGenerating={isAiGenerating}
               />
             )}
           </div>
