@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-server
+.git
+.agents
+*.log
+loctex_data/*.db-wal
+loctex_data/*.db-shm

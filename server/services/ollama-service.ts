@@ -52,7 +52,7 @@ export class OllamaQwenService {
   private endpoint: string;
   private activeModel: QwenModelId = 'qwen2.5-coder:1.5b';
 
-  constructor(endpoint = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434') {
+  constructor(endpoint = process.env.OLLAMA_ENDPOINT || process.env.OLLAMA_HOST || 'http://127.0.0.1:11434') {
     this.endpoint = endpoint.replace(/\/$/, '');
   }
 

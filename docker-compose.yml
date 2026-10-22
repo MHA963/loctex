@@ -1,0 +1,61 @@
+services:
+  # 1. Ollama service running the local LLM daemon
+  ollama:
+    image: ollama/ollama:latest
+    container_name: loctex-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment deploy block below if running with NVIDIA GPU support in Docker
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # 2. Automated one-shot model puller ensuring qwen2.5-coder is pre-loaded
+  qwen-pull:
+    image: ollama/ollama:latest
+    container_name: loctex-qwen-pull
+    depends_on:
+      - ollama
+    entrypoint: >
+      sh -c "
+        echo '⏳ Waiting for Ollama daemon to initialize...';
+        while ! curl -s http://ollama:11434/api/tags > /dev/null; do
+          sleep 2;
+        done;
+        echo '📥 Ensuring qwen2.5-coder:1.5b is downloaded...';
+        ollama pull qwen2.5-coder:1.5b;
+        echo '✅ Qwen 2.5 Coder is ready in Ollama!';
+      "
+    restart: "no"
+
+  # 3. LocTex Full-Stack App (Fastify + React + Tectonic LaTeX Compiler)
+  loctex-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loctex-app
+    restart: unless-stopped
+    ports:
+      - "4173:4173"
+    environment:
+      - PORT=4173
+      - HOST=0.0.0.0
+      - LOCTEX_DATA_DIR=/app/loctex_data
+      - OLLAMA_ENDPOINT=http://ollama:11434
+    volumes:
+      - loctex_projects:/app/loctex_data
+    depends_on:
+      - ollama
+
+volumes:
+  ollama_models:
+    name: loctex_ollama_models
+  loctex_projects:
+    name: loctex_projects_data
