@@ -1,7 +1,13 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { INITIAL_SCHEMA_SQL, ProjectRecord, SnapshotRecord, JournalRecord } from './schema.ts';
+import {
+  INITIAL_SCHEMA_SQL,
+  ProjectRecord,
+  SnapshotRecord,
+  JournalRecord,
+  ProjectChatRecord,
+} from './schema.ts';
 
 export class LocTexDatabase {
   private db: sqlite3.Database;
@@ -104,6 +110,7 @@ export class LocTexDatabase {
 
   public async deleteProject(id: string): Promise<void> {
     await this.run('DELETE FROM snapshots WHERE project_id = ?', [id]);
+    await this.run('DELETE FROM project_chats WHERE project_id = ?', [id]);
     await this.run('DELETE FROM projects WHERE id = ?', [id]);
   }
 
@@ -143,5 +150,24 @@ export class LocTexDatabase {
 
   public async deleteJournal(id: string): Promise<void> {
     await this.run('DELETE FROM journals WHERE id = ?', [id]);
+  }
+
+  // --- Project Chat Messages & Context ---
+  public async listProjectChats(projectId: string): Promise<ProjectChatRecord[]> {
+    return this.all<ProjectChatRecord>(
+      'SELECT * FROM project_chats WHERE project_id = ? ORDER BY created_at ASC',
+      [projectId]
+    );
+  }
+
+  public async saveProjectChat(chat: Omit<ProjectChatRecord, 'created_at'>): Promise<void> {
+    await this.run(
+      'INSERT INTO project_chats (id, project_id, role, content, model, intent) VALUES (?, ?, ?, ?, ?, ?)',
+      [chat.id, chat.project_id, chat.role, chat.content, chat.model || null, chat.intent || 'ask']
+    );
+  }
+
+  public async clearProjectChats(projectId: string): Promise<void> {
+    await this.run('DELETE FROM project_chats WHERE project_id = ?', [projectId]);
   }
 }

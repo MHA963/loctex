@@ -624,6 +624,52 @@ fastify.get('/api/projects/:id/synctex', async (request, reply) => {
   return { boxes };
 });
 
+// --- Project Chat Persistence API ---
+fastify.get('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  const messages = await db.listProjectChats(id);
+  return { messages };
+});
+
+fastify.post('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  const body = (request.body || {}) as {
+    id?: string;
+    role?: 'user' | 'assistant' | 'system';
+    content?: string;
+    model?: string;
+    intent?: string;
+  };
+
+  if (!body.role || !body.content) {
+    return reply.status(400).send({ error: 'Missing role or content' });
+  }
+
+  const messageId = body.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  await db.saveProjectChat({
+    id: messageId,
+    project_id: id,
+    role: body.role,
+    content: body.content,
+    model: body.model,
+    intent: body.intent,
+  });
+
+  return { success: true, messageId };
+});
+
+fastify.delete('/api/projects/:id/chat', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+  await db.clearProjectChats(id);
+  return { success: true };
+});
+
 // --- Daily Journals API ---
 fastify.get('/api/journals', async () => {
   const journals = await db.listJournals();
