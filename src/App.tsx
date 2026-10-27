@@ -8,7 +8,6 @@ import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
 import { ProjectsDashboard } from './components/ProjectsDashboard.tsx';
 import { ImportZipModal, NewProjectModal } from './components/Modals.tsx';
-import { QwenAssistantModal } from './components/QwenAssistantModal.tsx';
 import {
   AIFastEditResponse,
   CompileStatus,
@@ -101,7 +100,6 @@ export default function App() {
   // Modals & Drawers
   const [importZipOpen, setImportZipOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [qwenModalOpen, setQwenModalOpen] = useState(false);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [activeAiModel, setActiveAiModel] = useState<QwenModelId>('qwen2.5-coder:1.5b');
   const [projectChats, setProjectChats] = useState<Record<string, ChatMessage[]>>({});
@@ -904,14 +902,6 @@ export default function App() {
             setCompileStatus('error');
           }
         }}
-      />
-
-      <QwenAssistantModal
-        isOpen={qwenModalOpen}
-        onClose={() => setQwenModalOpen(false)}
-        fileContent={fileContent}
-        activeLine={activeLine}
-        onApplyPatchedContent={handleApplyPatchedContent}
       />
     </div>
   );
