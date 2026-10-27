@@ -50,12 +50,11 @@ services:
       - LOCTEX_DATA_DIR=/app/loctex_data
       - OLLAMA_ENDPOINT=http://ollama:11434
     volumes:
-      - loctex_projects:/app/loctex_data
+      # Bind-mount workspace loctex_data so projects are shared 1:1 with desktop electron:dev
+      - ./loctex_data:/app/loctex_data
     depends_on:
       - ollama
 
 volumes:
   ollama_models:
     name: loctex_ollama_models
-  loctex_projects:
-    name: loctex_projects_data
