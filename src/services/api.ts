@@ -2,6 +2,7 @@ import {
   AIChatIntent,
   AIChatRequest,
   AIChatResponse,
+  AIFastEditResponse,
   ChatMessage,
   CompileStatus,
   DiagnosticError,
@@ -147,6 +148,16 @@ export const api = {
       body: JSON.stringify(req),
     });
     if (!res.ok) throw new Error(`Failed to generate AI response: ${res.statusText}`);
+    return res.json();
+  },
+
+  async fixError(diagnostic: DiagnosticError, fileContent: string, model?: QwenModelId): Promise<AIFastEditResponse> {
+    const res = await fetch('/api/ai/fix-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ diagnostic, fileContent, model }),
+    });
+    if (!res.ok) throw new Error(`Diagnostic repair failed: ${res.statusText}`);
     return res.json();
   },
 };

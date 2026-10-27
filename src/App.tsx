@@ -8,6 +8,7 @@ import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
 import { DailyJournalView } from './components/DailyJournalView.tsx';
 import { ProjectsDashboard } from './components/ProjectsDashboard.tsx';
 import { ImportZipModal, NewProjectModal } from './components/Modals.tsx';
+import { api } from './services/api.ts';
 import {
   AIFastEditResponse,
   CompileStatus,
@@ -108,18 +109,15 @@ export default function App() {
   // Load and cache project chat messages
   const loadProjectChats = useCallback(async (projectId: string) => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/chat`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.messages)) {
-          setProjectChats((prev) => ({ ...prev, [projectId]: data.messages }));
-          try {
-            localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(data.messages));
-          } catch {
-            // ignore
-          }
-          return;
+      const data = await api.getProjectChat(projectId);
+      if (Array.isArray(data.messages)) {
+        setProjectChats((prev) => ({ ...prev, [projectId]: data.messages }));
+        try {
+          localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(data.messages));
+        } catch {
+          // ignore
         }
+        return;
       }
     } catch {
       // fallback
@@ -161,39 +159,32 @@ export default function App() {
     setIsAiGenerating(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          message,
-          intent,
-          model,
-          fileContent,
-          selectedText,
-          history: currentHistory.slice(-4).map((m) => ({ role: m.role, content: m.content })),
-        }),
+      const data = await api.sendChatMessage({
+        projectId,
+        message,
+        intent,
+        model,
+        fileContent,
+        selectedText,
+        history: currentHistory.slice(-4).map((m) => ({ role: m.role, content: m.content })),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const asstMsg: ChatMessage = {
-          id: data.messageId || `msg-${Date.now()}-a`,
-          projectId,
-          role: 'assistant',
-          content: data.reply,
-          model: data.model || model,
-          intent: data.intent || intent,
-          createdAt: new Date().toISOString(),
-        };
+      const asstMsg: ChatMessage = {
+        id: data.messageId || `msg-${Date.now()}-a`,
+        projectId,
+        role: 'assistant',
+        content: data.reply,
+        model: data.model || model,
+        intent: data.intent || intent,
+        createdAt: new Date().toISOString(),
+      };
 
-        const finalMessages = [...updatedWithUser, asstMsg];
-        setProjectChats((prev) => ({ ...prev, [projectId]: finalMessages }));
-        try {
-          localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(finalMessages));
-        } catch {
-          // ignore
-        }
+      const finalMessages = [...updatedWithUser, asstMsg];
+      setProjectChats((prev) => ({ ...prev, [projectId]: finalMessages }));
+      try {
+        localStorage.setItem(`loctex_chat_${projectId}`, JSON.stringify(finalMessages));
+      } catch {
+        // ignore
       }
     } catch (err) {
       console.error('Failed to send chat message:', err);
@@ -213,7 +204,7 @@ export default function App() {
       // ignore
     }
     try {
-      await fetch(`/api/projects/${projectId}/chat`, { method: 'DELETE' });
+      await api.clearProjectChat(projectId);
     } catch (err) {
       console.error('Failed to clear chat on server:', err);
     }
@@ -232,8 +223,7 @@ export default function App() {
   // Load projects on mount - keep initial view on dashboard
   const loadProjects = async () => {
     try {
-      const res = await fetch('/api/projects');
-      const data = await res.json();
+      const data = await api.getProjects();
       if (data.projects && data.projects.length > 0) {
         setProjects(data.projects);
         if (!activeProject) {
@@ -241,12 +231,7 @@ export default function App() {
           selectProject(data.projects[0], false, false);
         }
       } else {
-        const createRes = await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'My Research Paper' }),
-        });
-        const newProj = await createRes.json();
+        const newProj = await api.createProject('My Research Paper');
         setProjects([newProj]);
         selectProject(newProj, false, false);
       }
@@ -263,12 +248,7 @@ export default function App() {
   const triggerCompileForProject = async (projectId: string, targetFile: string, contentToSave: string) => {
     setCompileStatus('compiling');
     try {
-      const res = await fetch(`/api/projects/${projectId}/compile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: contentToSave, activeFile: targetFile }),
-      });
-      const result = await res.json();
+      const result = await api.compile(projectId, contentToSave, targetFile);
       setCompileStatus(result.success ? 'ready' : 'error');
       setDiagnostics(result.diagnostics || []);
       if (result.durationMs !== undefined) {
@@ -290,8 +270,7 @@ export default function App() {
     }
     setPdfVersion(Date.now());
     try {
-      const filesRes = await fetch(`/api/projects/${project.id}/files`);
-      const filesData = await filesRes.json();
+      const filesData = await api.getFiles(project.id);
       if (filesData.files) {
         setFiles(filesData.files);
       }
@@ -300,13 +279,11 @@ export default function App() {
       setActiveFile(targetFile);
       setLastTexFile(targetFile);
       setSvgCodeMode(false);
-      const fileRes = await fetch(`/api/projects/${project.id}/file?path=${encodeURIComponent(targetFile)}`);
-      const fileData = await fileRes.json();
+      const fileData = await api.getFile(project.id, targetFile);
       const content = fileData.content || '';
       setFileContent(content);
 
-      const snapRes = await fetch(`/api/projects/${project.id}/snapshots`);
-      const snapData = await snapRes.json();
+      const snapData = await api.getSnapshots(project.id);
       if (snapData.snapshots) {
         setSnapshots(snapData.snapshots);
       }
@@ -343,8 +320,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`);
-      const data = await res.json();
+      const data = await api.getFile(activeProject.id, filePath);
       if (data.content !== undefined) {
         setFileContent(data.content);
       }
@@ -396,11 +372,7 @@ export default function App() {
 
     setFileContent(newContent);
     const targetTex = activeFile.endsWith('.tex') ? activeFile : lastTexFile || 'main.tex';
-    await fetch(`/api/projects/${activeProject.id}/file`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: targetTex, content: newContent }),
-    });
+    await api.saveFile(activeProject.id, targetTex, newContent);
     triggerCompile(newContent);
   };
 
@@ -409,30 +381,16 @@ export default function App() {
     if (!activeProject) return;
     setFileContent(patchedContent);
     const targetTex = activeFile.endsWith('.tex') ? activeFile : lastTexFile || 'main.tex';
-    await fetch(`/api/projects/${activeProject.id}/file`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: targetTex, content: patchedContent }),
-    });
+    await api.saveFile(activeProject.id, targetTex, patchedContent);
     triggerCompile(patchedContent);
   };
 
   const handleAiFixDiagnostic = async (diagnostic: DiagnosticError) => {
     if (!activeProject) return;
     try {
-      const res = await fetch('/api/ai/fix-error', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          diagnostic,
-          fileContent,
-        }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as AIFastEditResponse;
-        if (data.success && data.patchedContent) {
-          await handleApplyPatchedContent(data.patchedContent);
-        }
+      const data = await api.fixError(diagnostic, fileContent);
+      if (data.success && data.patchedContent) {
+        await handleApplyPatchedContent(data.patchedContent);
       }
     } catch (e) {
       console.error('Qwen diagnostic repair failed:', e);
@@ -444,11 +402,9 @@ export default function App() {
     if (!activeProject || !fileContent) return;
     if (isPreviewableAsset(activeFile) && !svgCodeMode) return;
     const timer = setTimeout(() => {
-      fetch(`/api/projects/${activeProject.id}/file`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: activeFile, content: fileContent }),
-      }).catch((err) => console.error('Failed to auto-save file:', err));
+      api.saveFile(activeProject.id, activeFile, fileContent).catch((err) =>
+        console.error('Failed to auto-save file:', err)
+      );
     }, 600);
 
     return () => clearTimeout(timer);
@@ -524,9 +480,12 @@ export default function App() {
 
   // File CRUD & Asset Uploads
   const refreshProjectFiles = async (projectId: string) => {
-    const filesRes = await fetch(`/api/projects/${projectId}/files`);
-    const filesData = await filesRes.json();
-    setFiles(filesData.files || []);
+    try {
+      const filesData = await api.getFiles(projectId);
+      setFiles(filesData.files || []);
+    } catch (e) {
+      console.error('Failed to refresh project files:', e);
+    }
   };
 
   const handleUploadAsset = async (fileName: string, base64Data: string) => {
@@ -534,12 +493,7 @@ export default function App() {
     const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const targetPath = cleanName.includes('/') ? cleanName : `figures/${cleanName}`;
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/asset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: targetPath, base64Data }),
-      });
-      const data = await res.json();
+      const data = await api.uploadAsset(activeProject.id, { path: targetPath, base64Data });
       if (data.success && data.path) {
         await refreshProjectFiles(activeProject.id);
         await handleSelectFile(data.path);
@@ -556,19 +510,14 @@ export default function App() {
   }): Promise<string | null> => {
     if (!activeProject) return null;
     try {
-      const res = await fetch(`/api/projects/${activeProject.id}/asset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: payload.fileName,
-          base64Data: payload.base64Data,
-          svgContent: payload.svgContent,
-        }),
+      const data = await api.uploadAsset(activeProject.id, {
+        path: payload.fileName,
+        base64Data: payload.base64Data,
+        svgContent: payload.svgContent,
       });
-      const data = await res.json();
       if (data.success && data.path) {
         await refreshProjectFiles(activeProject.id);
-        return data.path as string;
+        return data.path;
       }
     } catch (e) {
       console.error('Failed to import pasted asset:', e);
@@ -581,11 +530,7 @@ export default function App() {
     const fileName = requestedName?.trim();
     if (!fileName) return;
     try {
-      await fetch(`/api/projects/${activeProject.id}/file/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: fileName }),
-      });
+      await api.createFile(activeProject.id, fileName);
       await refreshProjectFiles(activeProject.id);
       await handleSelectFile(fileName);
     } catch (e) {
@@ -596,9 +541,7 @@ export default function App() {
   const handleDeleteFile = async (filePath: string) => {
     if (!activeProject) return;
     try {
-      await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(filePath)}`, {
-        method: 'DELETE',
-      });
+      await api.deleteFile(activeProject.id, filePath);
       await refreshProjectFiles(activeProject.id);
       if (activeFile === filePath) {
         handleSelectFile('main.tex');
@@ -611,16 +554,9 @@ export default function App() {
   const handleRenameFile = async (oldPath: string, newName: string) => {
     if (!activeProject) return;
     try {
-      const getRes = await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(oldPath)}`);
-      const getData = await getRes.json();
-      await fetch(`/api/projects/${activeProject.id}/file/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: newName, initialContent: getData.content || '' }),
-      });
-      await fetch(`/api/projects/${activeProject.id}/file?path=${encodeURIComponent(oldPath)}`, {
-        method: 'DELETE',
-      });
+      const getData = await api.getFile(activeProject.id, oldPath);
+      await api.createFile(activeProject.id, newName, getData.content || '');
+      await api.deleteFile(activeProject.id, oldPath);
       await refreshProjectFiles(activeProject.id);
       handleSelectFile(newName);
     } catch (e) {
@@ -643,12 +579,7 @@ export default function App() {
   const handleImportZip = async (projectName: string, base64Zip: string) => {
     try {
       setCompileStatus('compiling');
-      const res = await fetch('/api/projects/import-zip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: projectName, base64Zip }),
-      });
-      const data = await res.json();
+      const data = await api.importZip(projectName, base64Zip);
       if (data.id) {
         const targetActiveFile = data.active_file || data.mainFile || 'main.tex';
         const newProj: Project = {
@@ -671,7 +602,7 @@ export default function App() {
 
   const handleDeleteProject = async (id: string) => {
     try {
-      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      await api.deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
       if (activeProject?.id === id) {
         const remaining = projects.filter((p) => p.id !== id);
@@ -685,11 +616,7 @@ export default function App() {
 
   const handleRenameProject = async (id: string, newName: string) => {
     try {
-      await fetch(`/api/projects/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName }),
-      });
+      await api.renameProject(id, newName);
       setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
       if (activeProject?.id === id) {
         setActiveProject((prev) => (prev ? { ...prev, name: newName } : null));
@@ -887,12 +814,7 @@ export default function App() {
         onCreate={async (name, template) => {
           try {
             setCompileStatus('compiling');
-            const res = await fetch('/api/projects', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, template }),
-            });
-            const newProj = await res.json();
+            const newProj = await api.createProject(name, template);
             setProjects((prev) => [newProj, ...prev]);
             await selectProject(newProj);
             setPdfVersion(Date.now());

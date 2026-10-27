@@ -160,7 +160,7 @@ export interface AIChatRequest {
   selectedText?: string;
   activeLine?: number;
   model?: QwenModelId;
-  history?: { role: 'user' | 'assistant'; content: string }[];
+  history?: { role: 'user' | 'assistant' | 'system'; content: string }[];
 }
 
 export interface AIChatResponse {
