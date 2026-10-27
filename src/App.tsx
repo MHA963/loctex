@@ -462,7 +462,7 @@ export default function App() {
         triggerCompile();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setQwenModalOpen((prev) => !prev);
+        setChatDrawerOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);

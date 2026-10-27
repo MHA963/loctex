@@ -465,7 +465,7 @@ export const EditorPane = forwardRef<EditorPaneRef, EditorPaneProps>(
     };
 
     return (
-      <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[#24221e] relative overflow-hidden">
+      <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[var(--border-color-subtle)] relative overflow-hidden">
         {/* Full Height CodeMirror LaTeX Editor with Syntax Colors */}
         <div className="flex-1 min-h-0 overflow-auto" ref={editorRef} />
 

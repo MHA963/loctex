@@ -77,7 +77,7 @@ export const AssetPreviewPane: React.FC<AssetPreviewPaneProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[#24221e] relative overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] border-r border-[var(--border-color-subtle)] relative overflow-hidden select-none">
       {/* Top Asset Inspector Bar */}
       <div className="h-10 px-3 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -168,7 +168,7 @@ export const AssetPreviewPane: React.FC<AssetPreviewPaneProps> = ({
       </div>
 
       {/* Center Asset Viewport (Replaces Code Editor Space) */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-[#0b0a09] relative">
+      <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-[var(--bg-primary)] relative">
         {loadError ? (
           <div className="flex flex-col items-center gap-2 text-center max-w-sm p-6 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color-subtle)]">
             <Eye className="w-8 h-8 text-rose-400" />

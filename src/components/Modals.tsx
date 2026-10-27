@@ -207,7 +207,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                 >
                   <div className="flex items-start justify-between gap-1.5 mb-1.5">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-[var(--accent-primary)] text-black' : 'bg-[#24221e] text-[var(--accent-primary)]'}`}>
+                      <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-[var(--accent-primary)] text-black' : 'bg-[var(--bg-surface-hover)] text-[var(--accent-primary)]'}`}>
                         <IconComp className="w-3.5 h-3.5" />
                       </div>
                       <span className={`text-xs font-semibold ${isSelected ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
@@ -220,7 +220,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                     {tmpl.description}
                   </p>
                   <div className="mt-2 flex items-center justify-between text-[9.5px]">
-                    <span className="px-1.5 py-0.5 rounded bg-[#24221e] text-[#8c887e] font-mono">
+                    <span className="px-1.5 py-0.5 rounded bg-[var(--bg-surface-hover)] text-[var(--text-secondary)] font-mono">
                       {tmpl.badge}
                     </span>
                   </div>
