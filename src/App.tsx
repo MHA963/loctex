@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HeaderPill } from './components/HeaderPill.tsx';
+import { DashboardHeader } from './components/DashboardHeader.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
 import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
 import { AssetPreviewPane, isPreviewableAsset } from './components/AssetPreviewPane.tsx';
@@ -470,11 +471,16 @@ export default function App() {
     editorRef.current?.wrapSelection('\\texttt{', '}');
   };
 
-  // Fit Width Calculation
+  // Intelligent Fit calculation: toggles between Fit Width and Fit Page
   const handleFitWidth = () => {
     if (pdfCanvasRef.current) {
-      const fitZoom = pdfCanvasRef.current.calculateFitWidth();
-      setZoom(fitZoom);
+      const fitWidthZoom = pdfCanvasRef.current.calculateFitWidth();
+      const fitPageZoom = pdfCanvasRef.current.calculateFitPage?.() ?? 75;
+      if (Math.abs(zoom - fitWidthZoom) <= 5) {
+        setZoom(fitPageZoom);
+      } else {
+        setZoom(fitWidthZoom);
+      }
     }
   };
 
@@ -628,40 +634,44 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      {/* Topbar / Floating Header Pill */}
-      <HeaderPill
-        compileStatus={compileStatus}
-        compileDurationMs={compileDurationMs}
-        zoom={zoom}
-        onZoomChange={setZoom}
-        onFitWidth={handleFitWidth}
-        onCompile={() => triggerCompile()}
-        onOpenQwenAssistant={() => setChatDrawerOpen((prev) => !prev)}
-        fontFamily={fontFamily}
-        onFontFamilyChange={setFontFamily}
-        fontFamilyCommand={selectionFormat.fontFamily}
-        onApplyFontFamily={handleApplyFontFamily}
-        fontSize={fontSize}
-        onFontSizeChange={setFontSize}
-        fontSizeCommand={selectionFormat.fontSize}
-        onApplyFontSize={handleApplyFontSize}
-        isBold={isBold}
-        onToggleBold={handleToggleBold}
-        isItalic={isItalic}
-        onToggleItalic={handleToggleItalic}
-        isUnderline={isUnderline}
-        onToggleUnderline={handleToggleUnderline}
-        isCode={isCode}
-        onToggleCode={handleToggleCode}
-        theme={theme}
-        onThemeChange={setTheme}
-        mode={mode}
-        onModeChange={setMode}
-        fileContent={fileContent}
-        selectedText={selectedText}
-        activeFileName={activeFile}
-        projectName={activeProject?.name || 'My Research'}
-      />
+      {/* Topbar: Minimal Clean Header on Dashboard; Full Tool HeaderPill in Studio */}
+      {currentView === 'dashboard' ? (
+        <DashboardHeader theme={theme} onThemeChange={setTheme} />
+      ) : (
+        <HeaderPill
+          compileStatus={compileStatus}
+          compileDurationMs={compileDurationMs}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          onFitWidth={handleFitWidth}
+          onCompile={() => triggerCompile()}
+          onOpenQwenAssistant={() => setChatDrawerOpen((prev) => !prev)}
+          fontFamily={fontFamily}
+          onFontFamilyChange={setFontFamily}
+          fontFamilyCommand={selectionFormat.fontFamily}
+          onApplyFontFamily={handleApplyFontFamily}
+          fontSize={fontSize}
+          onFontSizeChange={setFontSize}
+          fontSizeCommand={selectionFormat.fontSize}
+          onApplyFontSize={handleApplyFontSize}
+          isBold={isBold}
+          onToggleBold={handleToggleBold}
+          isItalic={isItalic}
+          onToggleItalic={handleToggleItalic}
+          isUnderline={isUnderline}
+          onToggleUnderline={handleToggleUnderline}
+          isCode={isCode}
+          onToggleCode={handleToggleCode}
+          theme={theme}
+          onThemeChange={setTheme}
+          mode={mode}
+          onModeChange={setMode}
+          fileContent={fileContent}
+          selectedText={selectedText}
+          activeFileName={activeFile}
+          projectName={activeProject?.name || 'My Research'}
+        />
+      )}
 
       {/* Main Content Area */}
       {currentView === 'dashboard' ? (

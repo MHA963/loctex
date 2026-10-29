@@ -9,6 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export interface PdfCanvasRef {
   calculateFitWidth: () => number;
+  calculateFitPage: () => number;
 }
 
 interface TextItemInfo {
@@ -134,12 +135,22 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
     const [renderedPageSizes, setRenderedPageSizes] = useState<Map<number, { width: number; height: number }>>(new Map());
     const [pageTextItems, setPageTextItems] = useState<Map<number, TextItemInfo[]>>(new Map());
 
-    // Expose calculateFitWidth to parent
+    // Expose calculateFitWidth and calculateFitPage to parent
     useImperativeHandle(ref, () => ({
       calculateFitWidth: () => {
-        if (!containerRef.current || !pageDimensions) return 100;
-        const availableWidth = Math.max(200, containerRef.current.clientWidth - 48); // 24px padding each side
-        const calculatedZoom = Math.round((availableWidth / pageDimensions.width) * 100);
+        const dims = pageDimensions || { width: 595.28, height: 841.89 };
+        const container = containerRef.current;
+        if (!container) return 100;
+        const availableWidth = Math.max(160, container.clientWidth - 32);
+        const calculatedZoom = Math.round((availableWidth / dims.width) * 100);
+        return Math.max(40, Math.min(250, calculatedZoom));
+      },
+      calculateFitPage: () => {
+        const dims = pageDimensions || { width: 595.28, height: 841.89 };
+        const container = containerRef.current;
+        if (!container) return 80;
+        const availableHeight = Math.max(200, container.clientHeight - 48);
+        const calculatedZoom = Math.round((availableHeight / dims.height) * 100);
         return Math.max(40, Math.min(250, calculatedZoom));
       },
     }));

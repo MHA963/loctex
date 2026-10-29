@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   RotateCw,
   Bold,
@@ -99,6 +99,31 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
 
+  const fontMenuRef = useRef<HTMLDivElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+  const statsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (fontMenuRef.current && !fontMenuRef.current.contains(target)) {
+        setFontMenuOpen(false);
+      }
+      if (themeMenuRef.current && !themeMenuRef.current.contains(target)) {
+        setThemeMenuOpen(false);
+      }
+      if (statsMenuRef.current && !statsMenuRef.current.contains(target)) {
+        setStatsOpen(false);
+      }
+    };
+    if (fontMenuOpen || themeMenuOpen || statsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [fontMenuOpen, themeMenuOpen, statsOpen]);
+
   const stats = useMemo(() => {
     return documentStatistics ?? computeDocumentStatistics(fileContent ?? '');
   }, [documentStatistics, fileContent]);
@@ -130,7 +155,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
 
   return (
     <header 
-      className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-2.5 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)] w-full overflow-hidden"
+      className="h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color-subtle)] px-2.5 flex items-center justify-between select-none relative z-30 font-sans text-[var(--text-primary)] w-full"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Window Controls & Qwen AI Shortcut */}
@@ -172,8 +197,8 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
       </div>
 
       {/* Floating Center Pill (Flexibly fits smaller windows without overflowing) */}
-      <div className="flex items-center justify-center min-w-0 mx-1 flex-shrink" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-2 sm:px-3 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-1.5 sm:gap-2.5 max-w-full overflow-hidden">
+      <div className="flex items-center justify-center min-w-0 mx-1 flex-shrink relative" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="flex items-center bg-[var(--bg-surface)]/95 backdrop-blur-md px-2 sm:px-3 py-1 rounded-full border border-[var(--border-color)] shadow-2xl text-[11px] text-[var(--text-secondary)] gap-1.5 sm:gap-2.5 max-w-full">
           {/* Compile Status & Trigger */}
           <div className="flex items-center gap-1.5 font-mono text-[10px]">
             <span className="text-[var(--text-muted)]">[LocTex • v1.4</span>
@@ -246,7 +271,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           <span className="text-[var(--border-color-subtle)]">•</span>
 
           {/* Academic Typography: Font Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={fontMenuRef}>
             <button
               onClick={() => setFontMenuOpen(!fontMenuOpen)}
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors text-[11px]"
@@ -358,7 +383,7 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           <span className="text-[var(--border-color-subtle)]">•</span>
 
           {/* Document Statistics Summary Popover */}
-          <div className="relative">
+          <div className="relative" ref={statsMenuRef}>
             <button
               onClick={() => setStatsOpen(!statsOpen)}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--bg-secondary)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-primary)] border border-[var(--border-color-subtle)] transition-colors text-[10px] font-mono cursor-pointer"
@@ -466,21 +491,27 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
           LocTex - {activeFileName} ({projectName})
         </span>
 
-        {/* Theme Dot */}
-        <div className="relative" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Theme Switcher */}
+        <div className="relative" ref={themeMenuRef} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-            className="p-1 rounded-full hover:bg-[var(--bg-surface-hover)] transition-colors"
-            title="Switch Theme"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-[var(--bg-surface-hover)] border border-[var(--border-color-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer shadow-xs"
+            title="Switch Appearance Theme"
           >
+            <Palette className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
             <span
               className="w-2.5 h-2.5 rounded-full inline-block shadow-sm"
               style={{ backgroundColor: themes.find((t) => t.name === theme)?.dotColor }}
             />
+            <span className="text-[11px] font-medium hidden sm:inline">Theme</span>
+            <ChevronDown className="w-2.5 h-2.5 text-[var(--text-muted)]" />
           </button>
 
           {themeMenuOpen && (
-            <div className="absolute top-full mt-1 right-0 w-36 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50">
+            <div className="absolute top-full mt-1.5 right-0 w-44 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1 z-50">
+              <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold border-b border-[var(--border-color-subtle)] mb-1">
+                Color Themes
+              </div>
               {themes.map((t) => (
                 <button
                   key={t.name}
@@ -488,12 +519,17 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
                     onThemeChange(t.name);
                     setThemeMenuOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-1 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center gap-2 ${
-                    theme === t.name ? 'text-[var(--accent-primary)] font-semibold' : 'text-[var(--text-primary)]'
+                  className={`w-full text-left px-3 py-1.5 hover:bg-[var(--bg-surface-hover)] text-[11px] flex items-center justify-between transition-colors cursor-pointer ${
+                    theme === t.name
+                      ? 'text-[var(--accent-primary)] font-semibold bg-[var(--bg-surface-hover)]/40'
+                      : 'text-[var(--text-primary)]'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: t.dotColor }} />
-                  {t.label}
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: t.dotColor }} />
+                    <span>{t.label}</span>
+                  </div>
+                  {theme === t.name && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />}
                 </button>
               ))}
             </div>
