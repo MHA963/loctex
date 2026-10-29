@@ -727,71 +727,74 @@ export default function App() {
             onRenameFile={handleRenameFile}
           />
 
-          {/* Center LaTeX Code Editor or Asset Preview Pane (Adjustable Width) */}
-          <div style={{ width: `${editorWidthPercent}%` }} className="h-full flex flex-col">
-            {activeProject && isPreviewableAsset(activeFile) && !svgCodeMode ? (
-              <AssetPreviewPane
-                projectId={activeProject.id}
-                filePath={activeFile}
-                svgSourceContent={fileContent}
-                onEditSvgSource={
-                  activeFile.toLowerCase().endsWith('.svg')
-                    ? () => setSvgCodeMode(true)
-                    : undefined
-                }
-                onBackToTex={() => handleSelectFile(lastTexFile || 'main.tex')}
-              />
-            ) : (
-              <EditorPane
-                ref={editorRef}
-                content={fileContent}
-                onChange={setFileContent}
-                diagnostics={diagnostics}
-                activeLine={activeLine}
+          {/* Main Studio Workspace: Split between Editor and PDF within available space */}
+          <div className="flex-1 h-full flex overflow-hidden min-w-0">
+            {/* Center LaTeX Code Editor or Asset Preview Pane (Adjustable Width) */}
+            <div style={{ width: `${editorWidthPercent}%` }} className="h-full flex flex-col flex-shrink-0 min-w-0">
+              {activeProject && isPreviewableAsset(activeFile) && !svgCodeMode ? (
+                <AssetPreviewPane
+                  projectId={activeProject.id}
+                  filePath={activeFile}
+                  svgSourceContent={fileContent}
+                  onEditSvgSource={
+                    activeFile.toLowerCase().endsWith('.svg')
+                      ? () => setSvgCodeMode(true)
+                      : undefined
+                  }
+                  onBackToTex={() => handleSelectFile(lastTexFile || 'main.tex')}
+                />
+              ) : (
+                <EditorPane
+                  ref={editorRef}
+                  content={fileContent}
+                  onChange={setFileContent}
+                  diagnostics={diagnostics}
+                  activeLine={activeLine}
+                  onCompile={() => triggerCompile()}
+                  onPasteAsset={handlePasteAssetInEditor}
+                  onSelectionFormatChange={handleSelectionFormatChange}
+                  chatDrawerOpen={chatDrawerOpen}
+                  onToggleChatDrawer={() => setChatDrawerOpen(!chatDrawerOpen)}
+                  chatMessages={activeProject ? projectChats[activeProject.id] || [] : []}
+                  onSendChatMessage={handleSendChatMessage}
+                  onClearChatHistory={handleClearChatHistory}
+                  activeAiModel={activeAiModel}
+                  onSelectAiModel={setActiveAiModel}
+                  isAiGenerating={isAiGenerating}
+                />
+              )}
+            </div>
+
+            {/* Draggable Horizontal Splitter Bar */}
+            <div
+              onMouseDown={handleMouseDownSplit}
+              className="w-1.5 bg-[#1a1916] hover:bg-[#d4af37] cursor-col-resize flex items-center justify-center transition-colors z-20 select-none group flex-shrink-0"
+              title="Drag to resize Editor / PDF view"
+            >
+              <div className="w-0.5 h-6 bg-[#3d3a33] group-hover:bg-black rounded-full" />
+            </div>
+
+            {/* Right Interactive PDF Canvas Pane (Takes remaining available width) */}
+            <div className="flex-1 h-full flex flex-col overflow-hidden min-w-0">
+              <PdfCanvas
+                ref={pdfCanvasRef}
+                projectId={activeProject?.id || null}
+                pdfVersion={pdfVersion}
+                zoom={zoom}
+                onZoomChange={setZoom}
+                compileStatus={compileStatus}
                 onCompile={() => triggerCompile()}
-                onPasteAsset={handlePasteAssetInEditor}
-                onSelectionFormatChange={handleSelectionFormatChange}
-                chatDrawerOpen={chatDrawerOpen}
-                onToggleChatDrawer={() => setChatDrawerOpen(!chatDrawerOpen)}
-                chatMessages={activeProject ? projectChats[activeProject.id] || [] : []}
-                onSendChatMessage={handleSendChatMessage}
-                onClearChatHistory={handleClearChatHistory}
-                activeAiModel={activeAiModel}
-                onSelectAiModel={setActiveAiModel}
-                isAiGenerating={isAiGenerating}
+                texContent={fileContent}
+                onJumpToSource={(line) => {
+                  if (isPreviewableAsset(activeFile)) {
+                    setActiveFile(lastTexFile || 'main.tex');
+                    setSvgCodeMode(false);
+                  }
+                  setActiveLine(line);
+                  setTimeout(() => editorRef.current?.jumpToLine(line), 20);
+                }}
               />
-            )}
-          </div>
-
-          {/* Draggable Horizontal Splitter Bar */}
-          <div
-            onMouseDown={handleMouseDownSplit}
-            className="w-1.5 bg-[#1a1916] hover:bg-[#d4af37] cursor-col-resize flex items-center justify-center transition-colors z-20 select-none group"
-            title="Drag to resize Editor / PDF view"
-          >
-            <div className="w-0.5 h-6 bg-[#3d3a33] group-hover:bg-black rounded-full" />
-          </div>
-
-          {/* Right Interactive PDF Canvas Pane (Adjustable Width) */}
-          <div style={{ width: `${100 - editorWidthPercent}%` }} className="h-full flex flex-col">
-            <PdfCanvas
-              ref={pdfCanvasRef}
-              projectId={activeProject?.id || null}
-              pdfVersion={pdfVersion}
-              zoom={zoom}
-              onZoomChange={setZoom}
-              compileStatus={compileStatus}
-              onCompile={() => triggerCompile()}
-              texContent={fileContent}
-              onJumpToSource={(line) => {
-                if (isPreviewableAsset(activeFile)) {
-                  setActiveFile(lastTexFile || 'main.tex');
-                  setSvgCodeMode(false);
-                }
-                setActiveLine(line);
-                setTimeout(() => editorRef.current?.jumpToLine(line), 20);
-              }}
-            />
+            </div>
           </div>
 
           {/* Bottom Diagnostic Drawer */}
