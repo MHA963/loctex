@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { fastify, PROJECTS_DIR } from '../server/index.ts';
@@ -26,6 +26,22 @@ describe('Day 1 (Monday) — Manual Compile, PDF Boundary Limits & Asset Viewer'
     const body = res.json();
     testProjectId = body.id;
     testProjectDir = path.resolve(PROJECTS_DIR, testProjectId);
+  });
+
+  afterAll(async () => {
+    try {
+      if (testProjectId) {
+        await fastify.inject({
+          method: 'DELETE',
+          url: `/api/projects/${testProjectId}`,
+        });
+      }
+      if (fs.existsSync(testProjectDir)) {
+        fs.rmSync(testProjectDir, { recursive: true, force: true });
+      }
+    } catch {
+      // ignore
+    }
   });
 
   describe('1. Asset Classification & LaTeX Snippet Generation (AssetPreviewPane)', () => {
