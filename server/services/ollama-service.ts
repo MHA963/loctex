@@ -215,7 +215,7 @@ export class OllamaQwenService {
     prompt: string,
     model: QwenModelId,
     jsonFormat = false,
-    timeoutMs = 4500
+    timeoutMs = 30000
   ): Promise<string | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -275,7 +275,7 @@ ${snippet}
 Respond ONLY with a valid JSON object matching:
 {"explanation": "concise reason", "search": "exact line or snippet to replace", "replace": "corrected LaTeX code"}`;
 
-    const rawResponse = await this.generateWithOllama(prompt, modelToUse, true, 4000);
+    const rawResponse = await this.generateWithOllama(prompt, modelToUse, true, 30000);
     if (rawResponse) {
       const parsed = OllamaQwenService.parseSearchReplaceOutput(rawResponse);
       if (parsed) {
@@ -389,7 +389,7 @@ ${targetSnippet}
 Return ONLY a JSON object with:
 {"explanation": "brief summary of edit", "search": "exact original snippet", "replace": "new LaTeX snippet"}`;
 
-    const rawResponse = await this.generateWithOllama(prompt, modelToUse, true, 4500);
+    const rawResponse = await this.generateWithOllama(prompt, modelToUse, true, 30000);
     if (rawResponse) {
       const parsed = OllamaQwenService.parseSearchReplaceOutput(rawResponse);
       if (parsed) {
@@ -542,7 +542,7 @@ Return ONLY a JSON object with:
     let usedFallback = false;
 
     try {
-      reply = await this.generateWithOllama(prompt, modelToUse, false, 5000);
+      reply = await this.generateWithOllama(prompt, modelToUse, false, 30000);
     } catch {
       reply = null;
     }
