@@ -9,6 +9,8 @@ if (!fs.existsSync(TEST_DATA_DIR)) {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 }
 process.env.LOCTEX_DATA_DIR = TEST_DATA_DIR;
+// Route test suite to non-existent endpoint so unit tests deterministically test offline fallback without latency
+process.env.OLLAMA_ENDPOINT = 'http://127.0.0.1:9999';
 
 export default defineConfig({
   test: {
