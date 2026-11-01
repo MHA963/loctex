@@ -83,26 +83,33 @@ function startBackendServer() {
   const isDev = !app.isPackaged;
   const projectRoot = isDev ? path.resolve(__dirname, '..') : process.resourcesPath;
 
+  const nodeBinary = isDev ? 'node' : process.execPath;
   const serverEnv = {
     ...process.env,
     LOCTEX_DATA_DIR: loctexDataDir,
     PORT: String(PORT),
     HOST,
     NODE_ENV: isDev ? 'development' : 'production',
+    ...(isDev ? {} : { ELECTRON_RUN_AS_NODE: '1' }),
   };
 
-  const compiledServer = path.join(projectRoot, 'dist-server', 'index.mjs');
+  const serverCandidates = [
+    path.join(projectRoot, 'dist-server', 'index.mjs'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'dist-server', 'index.mjs'),
+    path.join(__dirname, '..', 'dist-server', 'index.mjs'),
+  ];
+  const compiledServer = serverCandidates.find((c) => fs.existsSync(c));
 
-  if (fs.existsSync(compiledServer)) {
-    // Launch compiled Node server without shell splitting or loader path bugs
-    serverProcess = spawn('node', [compiledServer], {
-      cwd: projectRoot,
+  if (compiledServer) {
+    // Launch compiled server using Electron self-binary or Node
+    serverProcess = spawn(nodeBinary, [compiledServer], {
+      cwd: path.dirname(compiledServer),
       env: serverEnv,
       stdio: 'inherit',
       shell: false,
     });
   } else {
-    // Direct tsx CLI fallback
+    // Direct tsx CLI fallback for development
     const tsxCli = path.join(projectRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
     if (fs.existsSync(tsxCli)) {
       serverProcess = spawn('node', [tsxCli, 'server/index.ts'], {
@@ -111,17 +118,6 @@ function startBackendServer() {
         stdio: 'inherit',
         shell: false,
       });
-    } else {
-      serverProcess = spawn(
-        process.platform === 'win32' ? 'npx.cmd' : 'npx',
-        ['tsx', 'server/index.ts'],
-        {
-          cwd: projectRoot,
-          env: serverEnv,
-          stdio: 'inherit',
-          shell: true,
-        }
-      );
     }
   }
 

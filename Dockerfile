@@ -18,12 +18,14 @@ FROM node:20-bookworm-slim AS runner
 
 WORKDIR /app
 
-# Install tectonic & curl for LaTeX compiling and health checks
+# Install dependencies and statically-linked Tectonic LaTeX compiler (musl - zero glibc mismatch)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tectonic \
     curl \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    fontconfig \
+    tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /usr/local/bin
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
@@ -38,12 +40,10 @@ RUN npm ci --omit=dev
 # Copy compiled bundles and public assets from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server ./dist-server
-COPY --from=builder /app/loctex_data ./loctex_data_seed
 
 # Ensure data directory exists
 RUN mkdir -p /app/loctex_data
 
 EXPOSE 4173
 
-# Entrypoint script: seed data directory if empty, then start server
-CMD ["sh", "-c", "if [ ! -f /app/loctex_data/loctex.db ] && [ -d /app/loctex_data_seed ]; then cp -rn /app/loctex_data_seed/* /app/loctex_data/ 2>/dev/null || true; fi; node dist-server/index.mjs"]
+CMD ["node", "dist-server/index.mjs"]
