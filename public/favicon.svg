@@ -1,20 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
   <defs>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f5d77f" />
-      <stop offset="50%" stop-color="#d4af37" />
-      <stop offset="100%" stop-color="#aa820a" />
+    <linearGradient id="opt1Gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff4c8" />
+      <stop offset="35%" stop-color="#eac665" />
+      <stop offset="70%" stop-color="#c99f28" />
+      <stop offset="100%" stop-color="#805d04" />
     </linearGradient>
-    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1e1c18" />
-      <stop offset="100%" stop-color="#0e0d0b" />
+    <radialGradient id="opt1Bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#221e17" />
+      <stop offset="100%" stop-color="#12110e" />
     </radialGradient>
   </defs>
-  <rect width="128" height="128" rx="28" fill="url(#bgGrad)" stroke="#3d3725" stroke-width="3" />
-  <!-- Stylized LocTex 'L' with integral curve -->
-  <path d="M 38 32 L 38 88 Q 38 96 46 96 L 90 96 Q 96 96 96 90 L 96 86 L 56 86 Q 50 86 50 80 L 50 32 Z" fill="url(#goldGrad)" />
-  <!-- Mathematical Tau / Pi crossbar accent -->
-  <circle cx="82" cy="42" r="6" fill="#f5d77f" />
-  <line x1="68" y1="56" x2="98" y2="56" stroke="#d4af37" stroke-width="4" stroke-linecap="round" />
-  <line x1="83" y1="56" x2="83" y2="76" stroke="#d4af37" stroke-width="4" stroke-linecap="round" />
+  <!-- Outer Rounded Shield -->
+  <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#opt1Bg)" stroke="#473e26" stroke-width="2.5" />
+  <!-- Ambient Coordinate Grid -->
+  <path d="M 24 64 L 104 64" stroke="#2c2517" stroke-dasharray="3 3" stroke-width="1.2" />
+  <path d="M 64 24 L 64 104" stroke="#2c2517" stroke-dasharray="3 3" stroke-width="1.2" />
+  <!-- Primary Integral (∫) & Lambda (λ) Ribbon -->
+  <path d="M 78 28 C 66 28 58 36 58 50 L 58 74 C 58 84 50 94 36 94" stroke="url(#opt1Gold)" stroke-width="9" stroke-linecap="round" />
+  <path d="M 46 62 L 86 96" stroke="url(#opt1Gold)" stroke-width="8" stroke-linecap="round" />
+  <!-- Golden Vector Pen Tip Accent -->
+  <polygon points="78,28 85,22 89,32" fill="#fff4c8" />
+  <circle cx="89" cy="98" r="4.5" fill="#fff4c8" />
+  <circle cx="36" cy="94" r="3.5" fill="#eac665" />
 </svg>

@@ -6,8 +6,8 @@ import { EditorPane, EditorPaneRef } from './components/EditorPane.tsx';
 import { AssetPreviewPane, isPreviewableAsset } from './components/AssetPreviewPane.tsx';
 import { PdfCanvas, PdfCanvasRef } from './components/PdfCanvas.tsx';
 import { DiagnosticDrawer } from './components/DiagnosticDrawer.tsx';
-import { DailyJournalView } from './components/DailyJournalView.tsx';
 import { ProjectsDashboard } from './components/ProjectsDashboard.tsx';
+import { StartupSplash } from './components/StartupSplash.tsx';
 import { ImportZipModal, NewProjectModal } from './components/Modals.tsx';
 import { api } from './services/api.ts';
 import {
@@ -18,12 +18,10 @@ import {
   DiagnosticError,
   FileItem,
   FontFamily,
-  JournalEntry,
   Project,
   QwenModelId,
   ThemeName,
   VersionSnapshot,
-  WorkspaceMode,
 } from './types/index.ts';
 import {
   FontFamilyCommand,
@@ -37,10 +35,10 @@ export default function App() {
 
   // View State: 'dashboard' | 'studio' - always start on dashboard on launch
   const [currentView, setCurrentView] = useState<'dashboard' | 'studio'>('dashboard');
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Theme & Mode State
+  // Theme State
   const [theme, setTheme] = useState<ThemeName>('dark-gold');
-  const [mode, setMode] = useState<WorkspaceMode>('research-studio');
 
   // Typography Settings
   const [fontFamily, setFontFamily] = useState<FontFamily>('EB Garamond');
@@ -94,10 +92,6 @@ export default function App() {
   const [pdfVersion, setPdfVersion] = useState<number>(Date.now());
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([]);
   const [diagnostics, setDiagnostics] = useState<DiagnosticError[]>([]);
-
-  // Journals State
-  const [journals, setJournals] = useState<JournalEntry[]>([]);
-  const [activeDate, setActiveDate] = useState('2026-10-11');
 
   // Modals & Drawers
   const [importZipOpen, setImportZipOpen] = useState(false);
@@ -168,6 +162,7 @@ export default function App() {
         fileContent,
         selectedText,
         history: currentHistory.slice(-4).map((m) => ({ role: m.role, content: m.content })),
+        compilerErrors: diagnostics.map((d) => `[Line ${d.line}] ${d.message}`),
       });
 
       const asstMsg: ChatMessage = {
@@ -242,7 +237,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadProjects();
+    const startTime = Date.now();
+    loadProjects().finally(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 650 - elapsed);
+      setTimeout(() => {
+        setIsInitialLoading(false);
+      }, remaining);
+    });
   }, []);
 
   // Save & Compile implementation supporting explicit targets
@@ -546,6 +548,10 @@ export default function App() {
 
   const handleDeleteFile = async (filePath: string) => {
     if (!activeProject) return;
+    if (filePath === 'main.tex' || filePath === activeProject.active_file) {
+      alert('The root active LaTeX file cannot be deleted.');
+      return;
+    }
     try {
       await api.deleteFile(activeProject.id, filePath);
       await refreshProjectFiles(activeProject.id);
@@ -557,14 +563,12 @@ export default function App() {
     }
   };
 
-  const handleRenameFile = async (oldPath: string, newName: string) => {
+  const handleRenameFile = async (oldPath: string, newPath: string) => {
     if (!activeProject) return;
     try {
-      const getData = await api.getFile(activeProject.id, oldPath);
-      await api.createFile(activeProject.id, newName, getData.content || '');
-      await api.deleteFile(activeProject.id, oldPath);
+      await api.renameFile(activeProject.id, oldPath, newPath);
       await refreshProjectFiles(activeProject.id);
-      handleSelectFile(newName);
+      handleSelectFile(newPath);
     } catch (e) {
       console.error('Failed to rename file:', e);
     }
@@ -609,11 +613,15 @@ export default function App() {
   const handleDeleteProject = async (id: string) => {
     try {
       await api.deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+      const remaining = projects.filter((p) => p.id !== id);
+      setProjects(remaining);
       if (activeProject?.id === id) {
-        const remaining = projects.filter((p) => p.id !== id);
-        if (remaining.length > 0) selectProject(remaining[0]);
-        else setActiveProject(null);
+        if (remaining.length > 0) {
+          selectProject(remaining[0]);
+        } else {
+          setActiveProject(null);
+          setCurrentView('dashboard');
+        }
       }
     } catch (e) {
       console.error('Failed to delete project:', e);
@@ -634,6 +642,9 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      {/* Startup Animated Logo Splash Screen */}
+      <StartupSplash isLoading={isInitialLoading} />
+
       {/* Topbar: Minimal Clean Header on Dashboard; Full Tool HeaderPill in Studio */}
       {currentView === 'dashboard' ? (
         <DashboardHeader theme={theme} onThemeChange={setTheme} />
@@ -664,8 +675,6 @@ export default function App() {
           onToggleCode={handleToggleCode}
           theme={theme}
           onThemeChange={setTheme}
-          mode={mode}
-          onModeChange={setMode}
           fileContent={fileContent}
           selectedText={selectedText}
           activeFileName={activeFile}
@@ -685,24 +694,6 @@ export default function App() {
           onImportZip={() => setImportZipOpen(true)}
           onDeleteProject={handleDeleteProject}
           onRenameProject={handleRenameProject}
-        />
-      ) : mode === 'daily-journal' ? (
-        <DailyJournalView
-          journals={journals}
-          activeDate={activeDate}
-          onSelectDate={setActiveDate}
-          onSaveJournal={(dateStr, title, contentTex, tags) => {
-            const entry: JournalEntry = {
-              id: `jour-${dateStr}`,
-              dateStr,
-              title,
-              contentTex,
-              tags,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            setJournals((prev) => [entry, ...prev.filter((j) => j.dateStr !== dateStr)]);
-          }}
         />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
@@ -800,8 +791,10 @@ export default function App() {
           {/* Bottom Diagnostic Drawer */}
           <DiagnosticDrawer
             diagnostics={diagnostics}
-            onJumpToLine={(line) => {
-              if (isPreviewableAsset(activeFile)) {
+            onJumpToLine={(line, file) => {
+              if (file && file !== activeFile) {
+                handleSelectFile(file);
+              } else if (isPreviewableAsset(activeFile)) {
                 setActiveFile(lastTexFile || 'main.tex');
                 setSvgCodeMode(false);
               }
