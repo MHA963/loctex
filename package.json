@@ -1,9 +1,13 @@
 {
   "name": "loctex",
   "version": "1.0.0",
-  "description": "Offline-First LaTeX Research Studio & Daily Engineering Journal",
+  "description": "Offline-First Personal LaTeX & Research Studio",
   "license": "MIT",
-  "author": "LocTex Contributors",
+  "author": "MHA <98241106+MHA963@users.noreply.github.com> (https://github.com/MHA963)",
+  "homepage": "https://github.com/MHA963/loctex#readme",
+  "bugs": {
+    "url": "https://github.com/MHA963/loctex/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MHA963/loctex.git"
