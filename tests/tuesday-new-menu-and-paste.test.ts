@@ -68,6 +68,29 @@ describe('Day 2 (Tuesday) — +New Menu (.tex, .bib, Upload Image) & Clipboard I
       const savedBib = fs.readFileSync(path.resolve(testProjectDir, 'bibliography.bib'), 'utf-8');
       expect(savedBib).toContain('@article{reference2026');
     });
+
+    it('renames a file safely using POST /api/projects/:id/file/rename', async () => {
+      const renameRes = await fastify.inject({
+        method: 'POST',
+        url: `/api/projects/${testProjectId}/file/rename`,
+        payload: {
+          oldPath: 'chapters/experiment.tex',
+          newPath: 'chapters/methods.tex',
+        },
+      });
+      expect(renameRes.statusCode).toBe(200);
+      expect(fs.existsSync(path.resolve(testProjectDir, 'chapters/methods.tex'))).toBe(true);
+      expect(fs.existsSync(path.resolve(testProjectDir, 'chapters/experiment.tex'))).toBe(false);
+    });
+
+    it('rejects deleting the root active main.tex file with 400', async () => {
+      const delRes = await fastify.inject({
+        method: 'DELETE',
+        url: `/api/projects/${testProjectId}/file?path=main.tex`,
+      });
+      expect(delRes.statusCode).toBe(400);
+      expect(fs.existsSync(path.resolve(testProjectDir, 'main.tex'))).toBe(true);
+    });
   });
 
   describe('2. Binary Image & Vector SVG Upload API (POST /api/projects/:id/asset)', () => {

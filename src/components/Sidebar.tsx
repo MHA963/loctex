@@ -196,7 +196,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onChange={(e) => setRenameValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && renameValue.trim()) {
-                  onRenameFile(item.path, renameValue.trim());
+                  const dir = item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/') + 1) : '';
+                  onRenameFile(item.path, `${dir}${renameValue.trim()}`);
                   setRenamingPath(null);
                 } else if (e.key === 'Escape') {
                   setRenamingPath(null);
@@ -207,7 +208,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => {
                 if (renameValue.trim()) {
-                  onRenameFile(item.path, renameValue.trim());
+                  const dir = item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/') + 1) : '';
+                  onRenameFile(item.path, `${dir}${renameValue.trim()}`);
                 }
                 setRenamingPath(null);
               }}
@@ -258,16 +260,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Edit2 className="w-2.5 h-2.5" />
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteFile(item.path);
-              }}
-              className="p-0.5 hover:text-rose-400 text-[var(--text-muted)]"
-              title="Delete"
-            >
-              <Trash2 className="w-2.5 h-2.5" />
-            </button>
+            {item.name !== 'main.tex' && item.path !== (activeProject?.active_file || 'main.tex') && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteFile(item.path);
+                }}
+                className="p-0.5 hover:text-rose-400 text-[var(--text-muted)]"
+                title="Delete"
+              >
+                <Trash2 className="w-2.5 h-2.5" />
+              </button>
+            )}
           </div>
         </div>
       );

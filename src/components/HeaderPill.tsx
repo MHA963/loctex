@@ -15,7 +15,7 @@ import {
   Minus,
   Square,
 } from 'lucide-react';
-import { CompileStatus, FontFamily, ThemeName, WorkspaceMode } from '../types/index.ts';
+import { CompileStatus, FontFamily, ThemeName } from '../types/index.ts';
 import {
   FONT_FAMILY_OPTIONS,
   FONT_SIZE_OPTIONS,
@@ -57,8 +57,6 @@ interface HeaderPillProps {
   onToggleCode: () => void;
   theme: ThemeName;
   onThemeChange: (theme: ThemeName) => void;
-  mode: WorkspaceMode;
-  onModeChange: (mode: WorkspaceMode) => void;
   activeFileName?: string;
   projectName?: string;
 }
@@ -90,8 +88,6 @@ export const HeaderPill: React.FC<HeaderPillProps> = ({
   onToggleUnderline,
   theme,
   onThemeChange,
-  mode,
-  onModeChange,
   activeFileName = 'Methodology.tex',
   projectName = 'My Research',
 }) => {
