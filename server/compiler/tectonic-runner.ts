@@ -15,6 +15,7 @@ export interface CompilationResponse {
 
 export class TectonicRunner {
   private engineType: 'tectonic' | 'pdflatex' | 'unknown' = 'unknown';
+  private compileQueues = new Map<string, Promise<CompilationResponse>>();
 
   constructor() {
     this.detectEngine();
@@ -53,7 +54,41 @@ export class TectonicRunner {
   }
 
   public async compile(projectDir: string, mainTexFile = 'main.tex'): Promise<CompilationResponse> {
+    const queueKey = path.resolve(projectDir);
+    const previous = this.compileQueues.get(queueKey) || Promise.resolve({} as CompilationResponse);
+    const next = previous
+      .catch(() => ({} as CompilationResponse))
+      .then(() => this.executeCompile(projectDir, mainTexFile));
+    this.compileQueues.set(queueKey, next);
+    return next;
+  }
+
+  private async executeCompile(projectDir: string, mainTexFile = 'main.tex'): Promise<CompilationResponse> {
     const startTime = Date.now();
+
+    // Security & sanity checks on filename
+    if (
+      !mainTexFile ||
+      typeof mainTexFile !== 'string' ||
+      mainTexFile.trim().startsWith('-') ||
+      mainTexFile.includes('\0')
+    ) {
+      return {
+        success: false,
+        diagnostics: [
+          {
+            id: 'err-invalid-filename',
+            file: String(mainTexFile),
+            line: 1,
+            message: 'Invalid TeX filename: flag injection or invalid characters detected.',
+            severity: 'error',
+          },
+        ],
+        stdout: '',
+        durationMs: 0,
+      };
+    }
+
     const fullMainPath = path.resolve(projectDir, mainTexFile);
 
     if (!fs.existsSync(fullMainPath)) {
@@ -77,12 +112,41 @@ export class TectonicRunner {
       this.detectEngine();
     }
 
+    if (this.engineType === 'unknown') {
+      return {
+        success: false,
+        diagnostics: [
+          {
+            id: 'err-no-engine',
+            file: mainTexFile,
+            line: 1,
+            message: "No LaTeX compiler found in system PATH. Neither 'tectonic' nor 'pdflatex' is installed or accessible.",
+            severity: 'error',
+          },
+        ],
+        stdout: '',
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
     const pdfPath = path.resolve(projectDir, `${baseName}.pdf`);
     const synctexGz = path.resolve(projectDir, `${baseName}.synctex.gz`);
     const synctexPlain = path.resolve(projectDir, `${baseName}.synctex`);
 
     return new Promise((resolve) => {
+      let hasResolved = false;
+      let timeoutTimer: NodeJS.Timeout | null = null;
+      let isTimedOut = false;
+
+      const safeResolve = (res: CompilationResponse) => {
+        if (!hasResolved) {
+          hasResolved = true;
+          if (timeoutTimer) clearTimeout(timeoutTimer);
+          resolve(res);
+        }
+      };
+
       let command = 'tectonic';
       let args: string[] = [];
 
@@ -99,11 +163,12 @@ export class TectonicRunner {
           projectDir,
         ];
       } else {
-        // Use pdflatex with non-blocking package installer
+        // Use pdflatex with non-blocking package installer and strictly disabled shell escape
         command = 'pdflatex';
         args = [
           '-synctex=1',
           '-interaction=nonstopmode',
+          '-no-shell-escape',
           '-enable-installer',
           mainTexFile,
         ];
@@ -112,7 +177,7 @@ export class TectonicRunner {
       let stdout = '';
       let stderr = '';
 
-      let child;
+      let child: any;
       try {
         child = spawn(command, args, { cwd: projectDir, shell: false });
       } catch (err: any) {
@@ -132,15 +197,24 @@ export class TectonicRunner {
         });
       }
 
-      child.stdout?.on('data', (data) => {
+      // 30-second kill timeout to guard against infinite loops in TeX macros
+      timeoutTimer = setTimeout(() => {
+        isTimedOut = true;
+        try {
+          child.kill('SIGKILL');
+        } catch (_) {}
+      }, 30000);
+
+      child.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
-      child.stderr?.on('data', (data) => {
+      child.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 
-      child.on('error', (err) => {
+      child.on('error', (err: any) => {
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         const diagnostics = LaTeXErrorParser.parse(stderr + '\n' + stdout, mainTexFile);
         if (diagnostics.length === 0) {
           diagnostics.push({
@@ -151,7 +225,7 @@ export class TectonicRunner {
             severity: 'error',
           });
         }
-        resolve({
+        safeResolve({
           success: false,
           diagnostics,
           stdout: stdout + '\n' + stderr,
@@ -160,6 +234,26 @@ export class TectonicRunner {
       });
 
       child.on('close', async () => {
+        if (hasResolved) return;
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+
+        if (isTimedOut) {
+          return safeResolve({
+            success: false,
+            diagnostics: [
+              {
+                id: 'err-timeout',
+                file: mainTexFile,
+                line: 1,
+                message: 'Compilation timed out after 30 seconds.',
+                severity: 'error',
+              },
+            ],
+            stdout: stdout + '\n[LocTex] Compilation process terminated: exceeded 30s timeout.',
+            durationMs: Date.now() - startTime,
+          });
+        }
+
         let combinedLog = stdout + '\n' + stderr;
 
         const baseName = path.basename(mainTexFile, path.extname(mainTexFile));
@@ -214,7 +308,7 @@ export class TectonicRunner {
           diagnostics = diagnostics.filter((d) => !d.message.includes('Fatal error') && !d.message.includes('no output PDF'));
         }
 
-        resolve({
+        safeResolve({
           success: pdfExists,
           pdfPath: pdfExists ? pdfPath : undefined,
           synctexPath,

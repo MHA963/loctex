@@ -161,6 +161,7 @@ export interface AIChatRequest {
   activeLine?: number;
   model?: QwenModelId;
   history?: { role: 'user' | 'assistant' | 'system'; content: string }[];
+  compilerErrors?: string[];
 }
 
 export interface AIChatResponse {

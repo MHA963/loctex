@@ -7,6 +7,7 @@ import {
   CompileStatus,
   DiagnosticError,
   FileItem,
+  JournalEntry,
   Project,
   QwenModelId,
   VersionSnapshot,
@@ -102,6 +103,15 @@ export const api = {
     if (!res.ok) throw new Error(`Failed to delete file ${filePath}: ${res.statusText}`);
   },
 
+  async renameFile(projectId: string, oldPath: string, newPath: string): Promise<void> {
+    const res = await fetch(`/api/projects/${projectId}/file/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath, newPath }),
+    });
+    if (!res.ok) throw new Error(`Failed to rename file ${oldPath}: ${res.statusText}`);
+  },
+
   async uploadAsset(projectId: string, payload: { path: string; base64Data?: string; svgContent?: string }): Promise<{ success: boolean; path: string }> {
     const res = await fetch(`/api/projects/${projectId}/asset`, {
       method: 'POST',
@@ -126,6 +136,23 @@ export const api = {
       body: JSON.stringify({ content: contentToSave, activeFile: targetFile }),
     });
     if (!res.ok) throw new Error(`Compilation failed: ${res.statusText}`);
+    return res.json();
+  },
+
+  // Daily Journals API
+  async getJournals(): Promise<{ journals: JournalEntry[] }> {
+    const res = await fetch('/api/journals');
+    if (!res.ok) throw new Error(`Failed to load journals: ${res.statusText}`);
+    return res.json();
+  },
+
+  async saveJournal(payload: { date_str: string; title: string; content_tex: string; tags: string[] }): Promise<{ success: boolean; id: string }> {
+    const res = await fetch('/api/journals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Failed to save journal: ${res.statusText}`);
     return res.json();
   },
 

@@ -215,7 +215,7 @@ export class OllamaQwenService {
     prompt: string,
     model: QwenModelId,
     jsonFormat = false,
-    timeoutMs = 30000
+    timeoutMs = 90000
   ): Promise<string | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -508,17 +508,20 @@ Return ONLY a JSON object with:
     const intent = req.intent || 'ask';
     const message = (req.message || '').trim();
 
+    const errorsSnippet = req.compilerErrors?.length
+      ? `Active LaTeX Compiler Errors:\n${req.compilerErrors.slice(0, 5).join('\n')}\n`
+      : '';
     // Prepare contextual excerpt
     const contextSnippet = req.selectedText?.trim()
-      ? `Selected Text:\n${req.selectedText}`
+      ? `${errorsSnippet}Selected Text:\n${req.selectedText}`
       : req.fileContent?.trim()
-      ? `Active Document Excerpt:\n${req.fileContent.slice(0, 1200)}`
-      : '';
+      ? `${errorsSnippet}Active Document Excerpt:\n${req.fileContent.slice(0, 800)}`
+      : errorsSnippet.trim();
 
     // History prompt
     const historyPrompt = (req.history || [])
       .slice(-4)
-      .map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`)
+      .map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.role === 'assistant' && h.content.length > 200 ? `${h.content.slice(0, 200)}...` : h.content}}`)
       .join('\n');
 
     const systemInstructions: Record<AIChatIntent, string> = {
@@ -542,14 +545,14 @@ Return ONLY a JSON object with:
     let usedFallback = false;
 
     try {
-      reply = await this.generateWithOllama(prompt, modelToUse, false, 30000);
+      reply = await this.generateWithOllama(prompt, modelToUse, false, 90000);
     } catch {
       reply = null;
     }
 
     if (!reply || !reply.trim()) {
       usedFallback = true;
-      reply = this.synthesizeChatFallback(message, intent, req.selectedText, req.fileContent);
+      reply = this.synthesizeChatFallback(message, intent, req.selectedText, req.fileContent, req.compilerErrors);
     }
 
     return {
@@ -568,41 +571,74 @@ Return ONLY a JSON object with:
     message: string,
     intent: AIChatIntent,
     selectedText?: string,
-    fileContent?: string
+    fileContent?: string,
+    compilerErrors?: string[]
   ): string {
     const textTarget = (selectedText || '').trim();
     const lowerMsg = message.toLowerCase();
 
-    if (intent === 'debug') {
-      let findings: string[] = [];
-      const contentToAudit = textTarget || fileContent || '';
+    // Check if user is asking to debug/fix an error or if compiler errors are active
+    const hasCompilerErrors = Boolean(compilerErrors && compilerErrors.length > 0);
+    const isErrorQuery =
+      intent === 'debug' ||
+      lowerMsg.includes('fix') ||
+      lowerMsg.includes('error') ||
+      lowerMsg.includes('fail') ||
+      lowerMsg.includes('issue') ||
+      lowerMsg.includes('broken') ||
+      lowerMsg.includes('why');
 
-      // Check brace balance
-      let depth = 0;
-      for (let i = 0; i < contentToAudit.length; i++) {
-        if (contentToAudit[i] === '\\') { i++; continue; }
-        if (contentToAudit[i] === '{') depth++;
-        if (contentToAudit[i] === '}') depth--;
-      }
-      if (depth !== 0) {
-        findings.push(`- **Unbalanced Braces**: Found ${Math.abs(depth)} ${depth > 0 ? 'unclosed opening {' : 'extra closing }'} brace(s).`);
+    if (hasCompilerErrors || isErrorQuery) {
+      if (compilerErrors && compilerErrors.length > 0) {
+        const errorList = compilerErrors.slice(0, 5).map((errStr) => {
+          const match = errStr.match(/^\[Line\s*(\d+)\]\s*(.*)$/i);
+          const lineNum = match ? match[1] : '';
+          const errMsg = match ? match[2] : errStr;
+          const resolved = LaTeXErrorParser.resolveSuggestion(errMsg, textTarget || '', 'main.tex');
+          let text = `• **Line ${lineNum || '?'}**: \`${errMsg}\``;
+          if (resolved.suggestion) {
+            text += `\n  - *Root Cause & Guidance*: ${resolved.suggestion}`;
+          }
+          if (resolved.quickFix) {
+            text += `\n  - *Suggested Action*: \`${resolved.quickFix.payload}\``;
+          }
+          return text;
+        }).join('\n\n');
+
+        return `### 🛠️ Active LaTeX Compiler Diagnostics & Fix Guidance\n\nI analyzed your project's active compilation errors:\n\n${errorList}\n\n**How to Resolve**:\n1. Click the **Qwen Fix** or **Quick Fix** button directly on the error in the Diagnostics drawer at the bottom.\n2. Or apply the suggested packages/syntax in your document and press **Ctrl+S** to recompile.\n3. Make sure the local Ollama daemon (\`loctex-ollama\`) is running for real-time deep neural edits.`;
       }
 
-      // Check unescaped underscores outside math
-      const lines = contentToAudit.split('\n');
-      for (let idx = 0; idx < Math.min(lines.length, 50); idx++) {
-        const line = lines[idx];
-        if (/(?<!\\)_[a-zA-Z0-9]/.test(line) && !line.includes('$') && !line.includes('\\begin{equation}')) {
-          findings.push(`- **Unescaped Underscore**: Line ${idx + 1} contains unescaped \`_\`. Use \`\\_\` in text mode or \`$x_1$\` in math mode.`);
-          break;
+      if (intent === 'debug' || isErrorQuery) {
+        let findings: string[] = [];
+        const contentToAudit = textTarget || fileContent || '';
+
+        // Check brace balance
+        let depth = 0;
+        for (let i = 0; i < contentToAudit.length; i++) {
+          if (contentToAudit[i] === '\\') { i++; continue; }
+          if (contentToAudit[i] === '{') depth++;
+          if (contentToAudit[i] === '}') depth--;
         }
-      }
+        if (depth !== 0) {
+          findings.push(`- **Unbalanced Braces**: Found ${Math.abs(depth)} ${depth > 0 ? 'unclosed opening {' : 'extra closing }'} brace(s).`);
+        }
 
-      if (findings.length > 0) {
-        return `### 🛠️ Diagnostic Analysis\n\nI scanned the active code and detected the following syntax issue(s):\n\n${findings.join('\n')}\n\n**Recommendation**: Correct the highlighted tokens and press **Ctrl+S** to recompile.`;
-      }
+        // Check unescaped underscores outside math
+        const lines = contentToAudit.split('\n');
+        for (let idx = 0; idx < Math.min(lines.length, 50); idx++) {
+          const line = lines[idx];
+          if (/(?<!\\)_[a-zA-Z0-9]/.test(line) && !line.includes('$') && !line.includes('\\begin{equation}')) {
+            findings.push(`- **Unescaped Underscore**: Line ${idx + 1} contains unescaped \`_\`. Use \`\\_\` in text mode or \`$x_1$\` in math mode.`);
+            break;
+          }
+        }
 
-      return `### 🔍 LaTeX Debugger\n\nNo blatant structural errors were detected in the immediate context. Common checks:\n1. Verify all \\begin{...} have corresponding \\end{...}.\n2. Ensure necessary packages (e.g. \`amsmath\`, \`graphicx\`, \`booktabs\`) are imported in the preamble.\n3. Verify math symbols are wrapped in \`$...$\` or display math blocks.`;
+        if (findings.length > 0) {
+          return `### 🛠️ Diagnostic Analysis\n\nI scanned the active code and detected the following syntax issue(s):\n\n${findings.join('\n')}\n\n**Recommendation**: Correct the highlighted tokens and press **Ctrl+S** to recompile.`;
+        }
+
+        return `### 🔍 LaTeX Debugger\n\nNo blatant structural errors were detected in the immediate context. Common troubleshooting steps:\n1. Verify all \`\\begin{...}\` environments have a matching \`\\end{...}\`.\n2. Ensure necessary packages (e.g. \`amsmath\`, \`graphicx\`, \`booktabs\`) are imported in your preamble.\n3. Verify math symbols are wrapped in \`$...$\` or display math environments.\n4. Check the Diagnostics drawer at the bottom for compiler logs.`;
+      }
     }
 
     if (intent === 'rewrite') {
@@ -650,10 +686,11 @@ Return ONLY a JSON object with:
     // Dynamic contextual response reflecting the user's specific query
     const words = message.trim().split(/\s+/);
     const keyTopic = words.slice(0, 5).join(' ');
-    const codeSnippet = textTarget 
-      ? `\`\`\`latex\n% Solution for: ${message.trim()}\n${textTarget}\n\`\`\``
-      : `\`\`\`latex\n% Solution for: ${message.trim()}\n\\textbf{Note}: Integrated updated LaTeX formulation.\n\`\`\``;
 
-    return `### 💡 Response to "${keyTopic}..."\n\nRegarding your request: **"${message.trim()}"**\n\nHere is the LaTeX solution and guidance:\n${codeSnippet}\n\n*Action*: Click **Insert** or **Replace** above to apply this formatted LaTeX directly into your document.`;
+    if (textTarget) {
+      return `### 💡 Contextual LaTeX Guidance\n\nRegarding: **"${message.trim()}"**\n\n\`\`\`latex\n% Guidance for: ${message.trim()}\n${textTarget}\n\`\`\`\n\n*Action*: Click **Insert** or **Replace** above to apply this formatted LaTeX directly into your document.`;
+    }
+
+    return `### 💡 LaTeX Assistant\n\nRegarding: **"${message.trim()}"**\n\nTo apply changes or debug effectively:\n- Select the specific equation, paragraph, or macro in the editor to provide context.\n- Or check the **LaTeX Compiler Diagnostics** panel at the bottom to use one-click automated fixes.\n- Make sure the local Ollama daemon is active for live neural code generation.`;
   }
 }

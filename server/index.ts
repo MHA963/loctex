@@ -29,17 +29,41 @@ const db = new LocTexDatabase(path.resolve(LOCTEX_DATA_DIR, 'loctex.db'));
 const compiler = new TectonicRunner();
 const aiService = new OllamaQwenService();
 
-await fastify.register(cors, { origin: true });
+// Security response headers hook
+fastify.addHook('onSend', async (_request, reply) => {
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+});
+
+await fastify.register(cors, {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    try {
+      const parsed = new URL(origin);
+      const isLocal =
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1' ||
+        parsed.protocol === 'file:' ||
+        parsed.protocol === 'app:' ||
+        parsed.protocol === 'vscode-webview:';
+      cb(null, isLocal);
+    } catch {
+      cb(null, false);
+    }
+  },
+});
 await fastify.register(websocket);
 
 // Health check
 fastify.get('/api/health', async () => {
+  const isProd = process.env.NODE_ENV === 'production';
   return { 
     status: 'healthy', 
     timestamp: new Date().toISOString(), 
     app: 'LocTex',
-    dataDir: LOCTEX_DATA_DIR,
-    production: process.env.NODE_ENV === 'production'
+    ...(isProd ? {} : { dataDir: LOCTEX_DATA_DIR }),
+    production: isProd
   };
 });
 
@@ -58,6 +82,12 @@ fastify.get('/api/projects/:id', async (request, reply) => {
   return { project };
 });
 
+fastify.get('/api/projects/:id/snapshots', async (request) => {
+  const { id } = request.params as { id: string };
+  const snapshots = await db.listSnapshots(id);
+  return { snapshots };
+});
+
 fastify.post('/api/projects', async (request) => {
   const body = request.body as { name?: string; template?: string };
   const id = `proj-${Date.now()}`;
@@ -71,6 +101,8 @@ fastify.post('/api/projects', async (request) => {
 
   if (template === 'ieeetran') {
     mainTexContent = `\\documentclass[journal]{IEEEtran}
+\\usepackage[T1]{fontenc}
+\\usepackage{lmodern}
 \\usepackage{amsmath,amssymb,amsfonts}
 \\usepackage{algorithmic}
 \\usepackage{graphicx}
@@ -82,7 +114,7 @@ fastify.post('/api/projects', async (request) => {
 
 \\title{${name}}
 
-\\author{LocTex~Researcher,~\IEEEmembership{Member,~IEEE}
+\\author{LocTex~Researcher,~\\IEEEmembership{Member,~IEEE}%
 \\thanks{Manuscript created in LocTex, the offline-first personal LaTeX research studio.}}
 
 \\markboth{IEEE Transactions on Research,~Vol.~1, No.~1, \\today}%
@@ -118,6 +150,7 @@ This IEEEtran starter is ready for your journal or conference submission.
     mainTexContent = `\\documentclass{beamer}
 \\usetheme{Madrid}
 \\usecolortheme{beaver}
+\\usepackage{amsmath,amssymb}
 
 \\title[${name}]{${name}}
 \\subtitle{Research Presentation Deck}
@@ -147,7 +180,7 @@ This IEEEtran starter is ready for your journal or conference submission.
 \\section{Core Results}
 \\begin{frame}{Key Mathematical Findings}
   \\begin{block}{Theorem 1 (Linear Convergence)}
-    For learning rate $\\eta \\in (0, 2/\\lambda_{\\max})$, the error decays exponentially:
+    For learning rate $\\eta \\in (0, 2/\\lambda_{\\mathrm{max}})$, the error decays exponentially:
     \\[
       \\| \\theta_{t} - \\theta^* \\| \\le (1 - \\eta \\mu)^t \\| \\theta_0 - \\theta^* \\|
     \\]
@@ -173,7 +206,7 @@ This IEEEtran starter is ready for your journal or conference submission.
 
 \\pagestyle{empty}
 \\titlespacing{\\section}{0pt}{10pt}{4pt}
-\\titleformat{\\section}{\\large\\bfseries\\uppercase}{}{0em}{}[\\titlerule]
+\\titleformat{\\section}{\\large\\bfseries\\scshape}{}{0em}{}[\\titlerule]
 
 \\begin{document}
 
@@ -185,11 +218,11 @@ This IEEEtran starter is ready for your journal or conference submission.
 \\section{Education}
 \\textbf{Ph.D. in Computer Science} \\hfill 2021 -- 2025\\\\
 \\textit{Aarhus University, Denmark} \\\\
-Specialization: Machine Learning Systems and Compiler Optimizations.
+Specialization: Machine Learning Systems and Compiler Optimizations.\\par
 
 \\vspace{4pt}
 \\textbf{B.S. in Software Engineering} \\hfill 2017 -- 2021\\\\
-\\textit{University of Copenhagen} -- First Class Honours.
+\\textit{University of Copenhagen} -- First Class Honours.\\par
 
 \\section{Experience}
 \\textbf{Lead Research Engineer} \\hfill 2025 -- Present\\\\
@@ -212,6 +245,8 @@ Specialization: Machine Learning Systems and Compiler Optimizations.
   } else {
     // Standard Academic Article
     mainTexContent = `\\documentclass[11pt]{article}
+\\usepackage[T1]{fontenc}
+\\usepackage{lmodern}
 \\usepackage{amsmath,amssymb}
 \\usepackage{graphicx}
 \\usepackage{geometry}
@@ -281,18 +316,40 @@ LocTex provides a distraction-free, reliable LaTeX environment.
   return { id, name, root_path: projectDir, active_file: 'main.tex' };
 });
 
-fastify.patch('/api/projects/:id', async (request) => {
+fastify.patch('/api/projects/:id', async (request, reply) => {
   const { id } = request.params as { id: string };
-  const body = request.body as { name?: string; active_file?: string; settings_json?: string };
+  const body = (request.body || {}) as { name?: string; active_file?: string; settings_json?: string };
+  const project = await db.getProject(id);
+  if (!project) {
+    return reply.status(404).send({ error: 'Project not found' });
+  }
+
+  if (body.active_file) {
+    try {
+      resolveContainedPath(project.root_path, body.active_file);
+    } catch {
+      return reply.status(400).send({ error: 'Invalid active_file path: must be contained within project' });
+    }
+  }
+
   await db.updateProject(id, body);
   return { success: true };
 });
 
-fastify.delete('/api/projects/:id', async (request) => {
+fastify.delete('/api/projects/:id', async (request, reply) => {
   const { id } = request.params as { id: string };
   const project = await db.getProject(id);
-  if (project && fs.existsSync(project.root_path)) {
-    fs.rmSync(project.root_path, { recursive: true, force: true });
+  if (!project) {
+    return reply.status(404).send({ error: 'Project not found' });
+  }
+
+  if (fs.existsSync(project.root_path)) {
+    const root = path.resolve(project.root_path);
+    const rel = path.relative(PROJECTS_DIR, root);
+    // Defense: verify root_path is strictly inside PROJECTS_DIR and not PROJECTS_DIR itself
+    if (!rel.startsWith('..') && !path.isAbsolute(rel) && rel !== '') {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   }
   await db.deleteProject(id);
   return { success: true };
@@ -400,12 +457,31 @@ fastify.get('/api/projects/:id/files', async (request, reply) => {
   return { files };
 });
 
+const WINDOWS_RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$/i;
+
 function resolveContainedPath(projectRoot: string, targetPath: string): string {
   const root = path.resolve(projectRoot);
+  // Ensure projectRoot is within PROJECTS_DIR
+  const relProjects = path.relative(PROJECTS_DIR, root);
+  if (relProjects.startsWith('..') || path.isAbsolute(relProjects)) {
+    throw new Error('Access denied: Project root directory outside projects repository bounds');
+  }
+
   const clean = (targetPath || '').trim();
   if (!clean || clean === '.' || clean === './' || clean === '.\\') {
     throw new Error('Access denied: Target path must not be root directory');
   }
+  if (clean.includes('\0')) {
+    throw new Error('Access denied: Null byte in path forbidden');
+  }
+
+  const segments = clean.replace(/\\/g, '/').split('/');
+  for (const seg of segments) {
+    if (WINDOWS_RESERVED.test(seg)) {
+      throw new Error(`Access denied: Reserved device name '${seg}' forbidden`);
+    }
+  }
+
   const fullPath = path.resolve(root, clean);
   const rel = path.relative(root, fullPath);
   if (rel.startsWith('..') || path.isAbsolute(rel) || rel === '') {
@@ -427,7 +503,7 @@ fastify.get('/api/projects/:id/file', async (request, reply) => {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
-  if (!fs.existsSync(fullPath)) {
+  if (!fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
     return reply.status(404).send({ error: 'File not found' });
   }
 
@@ -446,6 +522,16 @@ const ASSET_MIME_TYPES: Record<string, string> = {
   '.ico': 'image/x-icon',
   '.bmp': 'image/bmp',
 };
+
+const ALLOWED_ASSET_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.pdf', '.ico', '.bmp']);
+
+function sanitizeSvg(rawSvg: string): string {
+  return rawSvg
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<foreignObject\b[^<]*(?:(?!<\/foreignObject>)<[^<]*)*<\/foreignObject>/gi, '')
+    .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
+    .replace(/\son\w+\s*=\s*[^>\s]+/gi, '');
+}
 
 fastify.get('/api/projects/:id/asset', async (request, reply) => {
   const { id } = request.params as { id: string };
@@ -470,6 +556,10 @@ fastify.get('/api/projects/:id/asset', async (request, reply) => {
 
   reply.header('Content-Type', mimeType);
   reply.header('Content-Length', buffer.length);
+  reply.header('X-Content-Type-Options', 'nosniff');
+  if (ext === '.svg') {
+    reply.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  }
   reply.header('Cache-Control', 'no-cache');
   return reply.send(buffer);
 });
@@ -490,6 +580,11 @@ fastify.post('/api/projects/:id/asset', async (request, reply) => {
     return reply.status(400).send({ error: 'Target asset path is required' });
   }
 
+  const ext = path.extname(requestedPath).toLowerCase();
+  if (!ALLOWED_ASSET_EXTS.has(ext)) {
+    return reply.status(400).send({ error: `Unsupported asset file extension: ${ext || 'none'}` });
+  }
+
   let fullPath: string;
   try {
     fullPath = resolveContainedPath(project.root_path, requestedPath);
@@ -499,12 +594,22 @@ fastify.post('/api/projects/:id/asset', async (request, reply) => {
 
   let buffer: Buffer;
   if (typeof body.svgContent === 'string' && body.svgContent.trim().length > 0) {
-    buffer = Buffer.from(body.svgContent, 'utf-8');
+    const sanitized = sanitizeSvg(body.svgContent);
+    buffer = Buffer.from(sanitized, 'utf-8');
   } else if (typeof body.base64Data === 'string' && body.base64Data.trim().length > 0) {
     const cleanBase64 = body.base64Data.replace(/^data:[^;]+;base64,/, '');
     buffer = Buffer.from(cleanBase64, 'base64');
+    if (ext === '.svg') {
+      const sanitized = sanitizeSvg(buffer.toString('utf-8'));
+      buffer = Buffer.from(sanitized, 'utf-8');
+    }
   } else {
     return reply.status(400).send({ error: 'Either base64Data or svgContent must be provided' });
+  }
+
+  // 10 MB maximum asset ceiling
+  if (buffer.length > 10 * 1024 * 1024) {
+    return reply.status(413).send({ error: 'Asset size exceeds maximum 10MB limit' });
   }
 
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -584,11 +689,52 @@ fastify.delete('/api/projects/:id/file', async (request, reply) => {
     return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
   }
 
+  // Canonical path check against root documents
+  const activeCanonical = path.resolve(project.root_path, project.active_file || 'main.tex');
+  const mainCanonical = path.resolve(project.root_path, 'main.tex');
+  if (fullPath === activeCanonical || fullPath === mainCanonical) {
+    return reply.status(400).send({ error: 'Cannot delete the active project root document.' });
+  }
+
   if (fs.existsSync(fullPath)) {
     fs.rmSync(fullPath, { recursive: true, force: true });
   }
 
   return { success: true };
+});
+
+fastify.post('/api/projects/:id/file/rename', async (request, reply) => {
+  const { id } = request.params as { id: string };
+  const body = (request.body || {}) as { oldPath?: string; newPath?: string };
+  if (!body.oldPath || !body.newPath) {
+    return reply.status(400).send({ error: 'Missing oldPath or newPath parameter' });
+  }
+  const project = await db.getProject(id);
+  if (!project) return reply.status(404).send({ error: 'Project not found' });
+
+  let oldFullPath: string;
+  let newFullPath: string;
+  try {
+    oldFullPath = resolveContainedPath(project.root_path, body.oldPath);
+    newFullPath = resolveContainedPath(project.root_path, body.newPath);
+  } catch {
+    return reply.status(403).send({ error: 'Access denied: Directory traversal forbidden' });
+  }
+
+  if (!fs.existsSync(oldFullPath)) {
+    return reply.status(404).send({ error: 'Source file not found' });
+  }
+
+  fs.mkdirSync(path.dirname(newFullPath), { recursive: true });
+  fs.renameSync(oldFullPath, newFullPath);
+
+  const normOld = body.oldPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const normNew = body.newPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (project.active_file === normOld) {
+    await db.updateProject(id, { active_file: normNew });
+  }
+
+  return { success: true, path: normNew };
 });
 
 // --- Compilation & SyncTeX API ---
@@ -675,30 +821,7 @@ fastify.delete('/api/projects/:id/chat', async (request, reply) => {
   return { success: true };
 });
 
-// --- Daily Journals API ---
-fastify.get('/api/journals', async () => {
-  const journals = await db.listJournals();
-  return { journals };
-});
 
-fastify.get('/api/journals/:dateStr', async (request) => {
-  const { dateStr } = request.params as { dateStr: string };
-  const entry = await db.getJournalByDate(dateStr);
-  return { entry };
-});
-
-fastify.post('/api/journals', async (request) => {
-  const body = request.body as { date_str: string; title: string; content_tex: string; tags: string[] };
-  const id = `jour-${body.date_str}`;
-  await db.saveJournal({
-    id,
-    date_str: body.date_str,
-    title: body.title,
-    content_tex: body.content_tex,
-    tags_json: JSON.stringify(body.tags || []),
-  });
-  return { success: true, id };
-});
 
 // --- Local AI (Qwen 2.5 Coder / Ollama) API ---
 fastify.get('/api/ai/status', async () => {
@@ -735,6 +858,13 @@ fastify.post('/api/ai/chat', async (request, reply) => {
   const body = (request.body || {}) as AIChatRequest;
   if (!body.message || typeof body.message !== 'string') {
     return reply.status(400).send({ error: 'Missing message payload' });
+  }
+
+  if (body.projectId) {
+    const project = await db.getProject(body.projectId);
+    if (!project) {
+      return reply.status(404).send({ error: 'Project not found' });
+    }
   }
 
   const response = await aiService.chat(body);

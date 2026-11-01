@@ -204,7 +204,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
           }
         })
         .catch((err) => {
-          if (!isMounted) return;
+          if (!isMounted || err?.message?.includes('Worker was terminated')) return;
           console.warn('PDF load warning:', err.message);
           setIsLoading(false);
           setError('PDF not yet compiled or unavailable.');
@@ -214,7 +214,9 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
 
       return () => {
         isMounted = false;
-        loadingTask.destroy();
+        try {
+          loadingTask.destroy().catch(() => {});
+        } catch (_) {}
       };
     }, [projectId, pdfVersion]);
 
@@ -267,7 +269,7 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
           renderTasks.current.set(pageNum, renderTask);
 
           renderTask.promise.catch((err) => {
-            if (err.name !== 'RenderingCancelledException') {
+            if (err.name !== 'RenderingCancelledException' && !err?.message?.includes('Worker was terminated')) {
               console.error(`Page ${pageNum} render error:`, err);
             }
           });
@@ -309,8 +311,20 @@ export const PdfCanvas = forwardRef<PdfCanvasRef, PdfCanvasProps>(
           } catch (e) {
             console.error('Failed to extract text content:', e);
           }
+        }).catch((err) => {
+          if (err?.name === 'RenderingCancelledException' || err?.message?.includes('Worker was terminated')) return;
+          console.warn(`Page ${pageNum} getPage error:`, err);
         });
       }
+
+      return () => {
+        renderTasks.current.forEach((task) => {
+          try {
+            task.cancel();
+          } catch (_) {}
+        });
+        renderTasks.current.clear();
+      };
     }, [pdfDoc, numPages, zoom]);
 
     // Handle clicking text on PDF to jump to LaTeX source code
