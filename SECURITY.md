@@ -17,7 +17,7 @@ Security is a core design pillar of **LocTex**. If you discover a vulnerability 
 
 1. **Do not** report security vulnerabilities via public GitHub issues.
 2. Please open a private security advisory on GitHub or email the maintainer directly at:
-   - **Contact**: `98241106+MHA963@users.noreply.github.com`
+   - **Contact**: `contact@mha-dev.com`
    - **Maintainer**: **MHA** ([@MHA963](https://github.com/MHA963))
 3. Include details of the vulnerability, steps to reproduce, and any proof-of-concept material.
 4. We will acknowledge receipt of your report within 48 hours and work on a prompt remediation.

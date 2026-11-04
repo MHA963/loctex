@@ -13,6 +13,7 @@
 ## 👤 Author & Maintainer
 
 - **Creator & Lead Developer**: **MHA** ([@MHA963](https://github.com/MHA963))
+- **Contact**: [contact@mha-dev.com](mailto:contact@mha-dev.com)
 - **Repository**: [https://github.com/MHA963/loctex](https://github.com/MHA963/loctex)
 - **Issues & Support**: [https://github.com/MHA963/loctex/issues](https://github.com/MHA963/loctex/issues)
 
