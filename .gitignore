@@ -38,3 +38,7 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local promotional assets
+resources/promo/
+
