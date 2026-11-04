@@ -1,9 +1,8 @@
 # 📝 LocTex — Offline-First Personal LaTeX & Research Studio
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-73%20passed-brightgreen.svg)]()
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue.svg)]()
-[![Electron](https://img.shields.io/badge/Desktop-Electron%2033-violet.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-Docker%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)]()
+[![Docker](https://img.shields.io/badge/Deployment-Docker%20Compose-2496ed.svg)]()
 [![React](https://img.shields.io/badge/Frontend-React%2019-61dafb.svg)]()
 [![Fastify](https://img.shields.io/badge/Backend-Fastify%205-black.svg)]()
 
@@ -21,13 +20,10 @@
 
 ## 🌟 Key Features
 
-### 💻 Native Desktop Application & Web Interface
-- **Windows Desktop Executables**:
-  - **NSIS Installer**: `LocTex-Setup-1.0.0.exe` with desktop shortcut and customizable install paths.
-  - **Portable Executable**: `LocTex-1.0.0-Portable.exe` running standalone with zero installation overhead.
-  - **Frameless Window**: Custom macOS-style traffic light window controls (minimize, maximize, close) with native drag regions.
-- **Local Browser Workspace**: Responsive web interface accessible at `http://localhost:4173`.
+### 💻 Modern Web Workspace & Visual Experience
+- **Zero-Setup Browser Studio**: Full-featured academic writing studio accessible directly in your browser at `http://localhost:4173`.
 - **Startup Loading Animation**: Polished golden monogram and mathematical integral curve loading sequence with smooth fade transitions.
+- **Distraction-Free Layout**: Clean split-pane layout with fluid LaTeX editor and real-time synchronized PDF canvas.
 
 ### 🤖 Local AI Research Copilot (Qwen 2.5 Coder)
 - **100% Offline & Private**: Connects directly to local Ollama runtime (`qwen2.5-coder:1.5b`, `3b`, `7b`). Your research notes and manuscripts never leave your machine.
@@ -68,7 +64,7 @@ LocTex is engineered with defense-in-depth principles:
 - **Process Guardrails**: Child compilation processes are terminated after a 30-second ceiling to prevent infinite macro loops.
 - **Path Confinement**: All file and asset operations pass through `resolveContainedPath`, blocking directory traversal (`../`), null bytes (`\0`), and Windows reserved device names (`CON`, `PRN`, `AUX`, `NUL`, etc.).
 - **Asset Hardening**: SVG uploads undergo AST sanitization to strip executable tags (`<script>`, `<foreignObject>`) and inline event handlers (`onload`, `onclick`). Served with strict `Content-Security-Policy` and `X-Content-Type-Options: nosniff`.
-- **Origin Isolation**: CORS is locked to local loopback adapters (`localhost`, `127.0.0.1`, and Electron webviews).
+- **Origin Isolation**: CORS is locked to local loopback adapters (`localhost`, `127.0.0.1`).
 
 ---
 
@@ -76,7 +72,7 @@ LocTex is engineered with defense-in-depth principles:
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Desktop Platform** | Electron 33, `electron-builder` |
+| **Containerization** | Docker, Docker Compose (Multi-stage build) |
 | **Frontend UI** | React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons |
 | **Code Editor** | CodeMirror 6 (LaTeX legacy mode, custom theme highlighting, linting) |
 | **PDF Rendering** | Mozilla PDF.js (`pdfjs-dist`), HTML5 Canvas text layers |
@@ -84,7 +80,6 @@ LocTex is engineered with defense-in-depth principles:
 | **Local AI Copilot** | Ollama API, Qwen 2.5 Coder (`1.5B` / `3B` / `7B`), heuristic fallback parser |
 | **Database** | SQLite (`sqlite3` with WAL mode) |
 | **TeX Compilers** | TeX Live, MiKTeX, Tectonic |
-| **Testing** | Vitest (13 test suites, 73 automated tests) |
 
 ---
 
@@ -121,24 +116,6 @@ npm run dev
 
 ---
 
-## 📦 Packaging Desktop Applications (.exe)
-
-LocTex compiles into standalone Windows installers or portable executables:
-
-```bash
-# Package production desktop installers into /release directory
-npm run dist:win
-
-# Run desktop application in development mode
-npm run electron:dev
-```
-
-Output directory:
-- `release/LocTex-Setup-1.0.0.exe` (NSIS Installer)
-- `release/LocTex-1.0.0-Portable.exe` (Standalone Portable)
-
----
-
 ## 🐳 Docker Deployment
 
 You can run LocTex in an isolated containerized environment:
@@ -152,35 +129,6 @@ npm run docker:logs
 
 # Stop containers
 npm run docker:down
-```
-
----
-
-## 🧪 Testing
-
-LocTex comes with an automated test suite covering database persistence, error parsing, SyncTeX parsing, desktop storage isolation, and security controls:
-
-```bash
-npm test
-```
-
-```text
-✓ tests/wednesday-stats.test.ts (5 tests)
-✓ tests/error-parser.test.ts (5 tests)
-✓ tests/wednesday-toolbar.test.ts (14 tests)
-✓ tests/ollama-service.test.ts (6 tests)
-✓ tests/thursday-chat-ui.test.ts (7 tests)
-✓ tests/db.test.ts (3 tests)
-✓ tests/desktop-packaging.test.ts (4 tests)
-✓ tests/zip-service.test.ts (2 tests)
-✓ tests/synctex.test.ts (1 test)
-✓ tests/thursday-chat-api.test.ts (6 tests)
-✓ tests/templates.test.ts (3 tests)
-✓ tests/monday-compile-pdf-asset.test.ts (8 tests)
-✓ tests/tuesday-new-menu-and-paste.test.ts (9 tests)
-
-Test Files:  13 passed (13)
-Tests:       73 passed (73)
 ```
 
 ---
